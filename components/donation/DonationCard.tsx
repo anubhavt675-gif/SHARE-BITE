@@ -15,7 +15,7 @@ import { StatusChip } from '../ui/StatusChip';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Radius, Shadow, Spacing } from '../../constants/spacing';
 import { Colors } from '../../constants/colors';
-import { FOOD_CATEGORIES } from '../../services/mock-data';
+import { FOOD_CATEGORIES } from '../../constants/food-ui';
 
 interface DonationCardProps {
   donation: Donation;

@@ -1,6 +1,6 @@
 // ShareBite — Discover / Nearby Screen
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
 import { LocationService } from '../../services/location';
+import { supabase } from '../../lib/supabase';
 import { Donation } from '../../types';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
@@ -45,6 +46,8 @@ export default function DiscoverScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
+  const latRef = useRef(28.6139);
+  const lngRef = useRef(77.2090);
 
   const isNGO = user?.role === 'ngo';
 
@@ -53,6 +56,8 @@ export default function DiscoverScreen() {
       const loc = await LocationService.getCurrentLocation();
       const lat = loc?.latitude ?? 28.6139;
       const lng = loc?.longitude ?? 77.2090;
+      latRef.current = lat;
+      lngRef.current = lng;
       const dons = await DonationsService.getNearbyDonations(lat, lng);
       setDonations(dons);
       setFiltered(dons);
@@ -60,6 +65,21 @@ export default function DiscoverScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('discover-food-listings')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'food_listings' },
+        async () => {
+          const dons = await DonationsService.getNearbyDonations(latRef.current, lngRef.current);
+          setDonations(dons);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);

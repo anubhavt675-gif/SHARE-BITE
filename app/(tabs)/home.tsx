@@ -1,6 +1,6 @@
 // ShareBite — Home Screen (Role-aware: Donor + NGO)
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,8 @@ import { HandDrawnSeparator, WaxSeal } from '../../components/ui/BotanicalDetail
 import { DonationsService } from '../../services/donations';
 import { ImpactService } from '../../services/impact';
 import { LocationService } from '../../services/location';
+import { NotificationsService } from '../../services/notifications';
+import { supabase } from '../../lib/supabase';
 import { Donation, ImpactStats } from '../../types';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
@@ -41,15 +43,18 @@ function DonorHome() {
   const [impact, setImpact] = useState<ImpactStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
-      const [dons, imp] = await Promise.all([
+      const [dons, imp, unread] = await Promise.all([
         DonationsService.getMyDonations(user?.id ?? ''),
         ImpactService.getUserImpact(user?.id ?? '', 'donor'),
+        user?.id ? NotificationsService.getUnreadCount(user.id) : Promise.resolve(0),
       ]);
       setDonations(dons);
       setImpact(imp);
+      setUnreadCount(unread);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -83,7 +88,7 @@ function DonorHome() {
               accessibilityLabel="Notifications"
             >
               <Ionicons name="notifications-outline" size={18} color={theme.colors.text} />
-              <View style={[styles.notifDot, { backgroundColor: Colors.primary }]} />
+              {unreadCount > 0 && <View style={[styles.notifDot, { backgroundColor: Colors.primary }]} />}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
               <Avatar name={user?.name ?? 'U'} size={34} showVerified={user?.isVerified} />
@@ -207,24 +212,23 @@ function DonorHome() {
         <CommunityMapCard />
       </View>
 
-      {/* ── Community Stories ── */}
+      {/* ── Community Impact Card ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>LIFESTYLE & IMPACT</Text>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Community Stories</Text>
-        <View style={styles.storiesRow}>
-          {[
-            { id: 's1', title: 'How a local café rescued 42 meals today', image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=400' },
-            { id: 's2', title: 'From kitchen surplus to family dinner', image: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400' },
-          ].map(story => (
-            <View key={story.id} style={[styles.storyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-              <Image source={{ uri: story.image }} style={styles.storyImg} />
-              <Text style={[styles.storyTitle, { color: theme.colors.text }]}>{story.title}</Text>
-              <TouchableOpacity style={styles.storyLink}>
-                <Text style={styles.storyLinkText}>READ →</Text>
-              </TouchableOpacity>
+        <Text style={styles.sectionLabel}>COMMUNITY IMPACT</Text>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Every Meal Matters</Text>
+        <Card style={styles.impactCard} padding={18}>
+          <View style={styles.impactCardRow}>
+            <Ionicons name="leaf-outline" size={28} color={Colors.primary} />
+            <View style={{ flex: 1, marginLeft: Spacing.md }}>
+              <Text style={[styles.impactCardTitle, { color: theme.colors.text }]}>
+                Real food. Real people. Real impact.
+              </Text>
+              <Text style={[styles.impactCardBody, { color: theme.colors.textSecondary }]}>
+                Every donation you make goes directly to verified local NGOs and community kitchens — zero waste, maximum reach.
+              </Text>
             </View>
-          ))}
-        </View>
+          </View>
+        </Card>
       </View>
 
       {/* ── Recent Donations ── */}
@@ -276,18 +280,43 @@ function NGOHome() {
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const latRef = useRef(28.6139);
+  const lngRef = useRef(77.2090);
 
   const loadData = useCallback(async () => {
     try {
-      const loc = await LocationService.getCurrentLocation();
+      const [loc, unread] = await Promise.all([
+        LocationService.getCurrentLocation(),
+        user?.id ? NotificationsService.getUnreadCount(user.id) : Promise.resolve(0),
+      ]);
       const lat = loc?.latitude ?? 28.6139;
       const lng = loc?.longitude ?? 77.2090;
+      latRef.current = lat;
+      lngRef.current = lng;
       const dons = await DonationsService.getNearbyDonations(lat, lng);
       setDonations(dons);
+      setUnreadCount(unread);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  }, [user?.id]);
+
+  // Realtime subscription — prepend new food listings automatically
+  useEffect(() => {
+    const channel = supabase
+      .channel('home-food-listings')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'food_listings' },
+        async () => {
+          const dons = await DonationsService.getNearbyDonations(latRef.current, lngRef.current);
+          setDonations(dons);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -327,7 +356,7 @@ function NGOHome() {
               accessibilityLabel="Notifications"
             >
               <Ionicons name="notifications-outline" size={18} color={theme.colors.text} />
-              <View style={[styles.notifDot, { backgroundColor: Colors.primary }]} />
+              {unreadCount > 0 && <View style={[styles.notifDot, { backgroundColor: Colors.primary }]} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -409,24 +438,29 @@ function NGOHome() {
         <CommunityMapCard />
       </View>
 
-      {/* ── Community Stories ── */}
+      {/* ── How It Works ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>LIFESTYLE & IMPACT</Text>
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Community Stories</Text>
-        <View style={styles.storiesRow}>
-          {[
-            { id: 's1', title: 'How a local café rescued 42 meals today', image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=400' },
-            { id: 's2', title: 'From kitchen surplus to family dinner', image: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400' },
-          ].map(story => (
-            <View key={story.id} style={[styles.storyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-              <Image source={{ uri: story.image }} style={styles.storyImg} />
-              <Text style={[styles.storyTitle, { color: theme.colors.text }]}>{story.title}</Text>
-              <TouchableOpacity style={styles.storyLink}>
-                <Text style={styles.storyLinkText}>READ →</Text>
-              </TouchableOpacity>
+        <Text style={styles.sectionLabel}>HOW IT WORKS</Text>
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>From Listing to Table</Text>
+        {[
+          { icon: 'search-outline' as const, label: 'Discover', desc: 'Browse available food donations near you in real time.' },
+          { icon: 'bookmark-outline' as const, label: 'Reserve', desc: 'Claim servings and set a pickup window with the donor.' },
+          { icon: 'bicycle-outline' as const, label: 'Collect', desc: 'Pick up the food and confirm via the app — zero paperwork.' },
+        ].map((step, i) => (
+          <View
+            key={step.label}
+            style={[styles.howItWorksRow, { borderColor: theme.colors.border }]}
+          >
+            <View style={[styles.howItWorksIcon, { backgroundColor: `${Colors.primary}14` }]}>
+              <Ionicons name={step.icon} size={18} color={Colors.primary} />
             </View>
-          ))}
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.howItWorksLabel, { color: theme.colors.text }]}>{step.label}</Text>
+              <Text style={[styles.howItWorksDesc, { color: theme.colors.textSecondary }]}>{step.desc}</Text>
+            </View>
+            <Text style={[styles.stepNumber, { color: theme.colors.border }]}>{`0${i + 1}`}</Text>
+          </View>
+        ))}
       </View>
 
       {/* ── Nearby Feed ── */}
@@ -497,33 +531,44 @@ function CommunityMapCard() {
             strokeWidth="1"
             strokeDasharray="3 4"
           />
+          <Path
+            d="M 200 20 Q 260 60, 240 100 T 340 140"
+            fill="none"
+            stroke={Colors.border}
+            strokeWidth="1"
+            strokeDasharray="2 5"
+          />
         </Svg>
 
-        {/* Community node labels */}
+        {/* Animated pulse nodes — no hardcoded names, just visual activity indicators */}
         {[
-          { label: 'The Daily Knead', top: 18, left: 20, color: Colors.primary },
-          { label: 'Farmer Josh',     top: 55, right: 20, color: Colors.accent },
-          { label: 'City Mission',    bottom: 14, left: 40, color: Colors.yellow },
-          { label: 'Community Kitchen', bottom: 38, right: 50, color: Colors.primary },
+          { top: 22,  left: 28,   color: Colors.primary },
+          { top: 60,  right: 24,  color: Colors.accent  },
+          { bottom: 18, left: 50, color: Colors.yellow  },
+          { bottom: 42, right: 55, color: Colors.primary },
         ].map((pin, i) => (
           <View
             key={i}
             style={[
-              styles.mapPin,
+              styles.mapPulse,
               {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.text,
-                top: pin.top,
+                backgroundColor: `${(pin as any).color}22`,
+                borderColor: `${(pin as any).color}55`,
+                top: (pin as any).top,
                 left: (pin as any).left,
                 right: (pin as any).right,
                 bottom: (pin as any).bottom,
               },
             ]}
           >
-            <View style={[styles.mapPinDot, { backgroundColor: pin.color }]} />
-            <Text style={[styles.mapPinLabel, { color: theme.colors.text }]}>{pin.label}</Text>
+            <View style={[styles.mapPulseDot, { backgroundColor: (pin as any).color }]} />
           </View>
         ))}
+
+        <View style={styles.mapLegend}>
+          <View style={[styles.mapLegendDot, { backgroundColor: Colors.primary }]} />
+          <Text style={[styles.mapLegendText, { color: theme.colors.textTertiary }]}>Active donors & NGOs near you</Text>
+        </View>
 
         <WaxSeal size={36} style={styles.mapWax} />
       </View>
@@ -783,24 +828,38 @@ const styles = StyleSheet.create({
     height: 150,
     position: 'relative',
   },
-  mapPin: {
+  // Pulse node — circle with dot, no fake labels
+  mapPulse: {
     position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  mapLegend: {
+    position: 'absolute',
+    bottom: 10,
+    left: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderWidth: 0.8,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
+    gap: 5,
+  },
+  mapLegendDot: {
+    width: 6,
+    height: 6,
     borderRadius: 3,
   },
-  mapPinDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  mapPinLabel: {
+  mapLegendText: {
     fontSize: 8,
-    fontFamily: FontFamily.outfitSemiBold,
+    fontFamily: FontFamily.interRegular,
+    fontStyle: 'italic',
   },
   mapWax: {
     position: 'absolute',
@@ -820,37 +879,56 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // ── Community Stories ──
-  storiesRow: {
+  // ── Impact Info Card (Donor) ──
+  impactCard: {
+    marginTop: Spacing.sm,
+  },
+  impactCardRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
-    marginTop: Spacing.md,
+    alignItems: 'flex-start',
   },
-  storyCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
-    overflow: 'hidden',
-  },
-  storyImg: {
-    width: '100%',
-    height: 110,
-  },
-  storyTitle: {
+  impactCardTitle: {
     fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize.base,
+    marginBottom: Spacing.xs,
+  },
+  impactCardBody: {
+    fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs + 1,
     lineHeight: 17,
-    padding: Spacing.sm,
   },
-  storyLink: {
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
+
+  // ── How It Works (NGO) ──
+  howItWorksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 0.5,
   },
-  storyLinkText: {
-    fontSize: 9,
-    fontFamily: FontFamily.outfitBold,
-    color: Colors.primary,
-    letterSpacing: 0.5,
+  howItWorksIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  howItWorksLabel: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize.base,
+    marginBottom: 2,
+  },
+  howItWorksDesc: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.xs,
+    lineHeight: 16,
+  },
+  stepNumber: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize['2xl'],
+    letterSpacing: -1,
+    flexShrink: 0,
   },
 
   // ── Empty Card ──

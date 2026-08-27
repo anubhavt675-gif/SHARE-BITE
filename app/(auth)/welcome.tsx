@@ -17,7 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Button } from '../../components/ui/Button';
 import { BotanicalSprig, WaxSeal } from '../../components/ui/BotanicalDetails';
-import { ONBOARDING_SLIDES } from '../../services/mock-data';
+import { ONBOARDING_SLIDES } from '../../constants/food-ui';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';

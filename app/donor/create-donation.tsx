@@ -25,7 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { DonationsService } from '../../services/donations';
-import { FOOD_CATEGORIES } from '../../services/mock-data';
+import { FOOD_CATEGORIES } from '../../constants/food-ui';
 import { CreateDonationForm, FoodCategory, PackagingType } from '../../types';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';

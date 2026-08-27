@@ -24,7 +24,7 @@ import { StatusChip } from '../../components/ui/StatusChip';
 import { HandDrawnSeparator, BotanicalSprig } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
 import { Donation } from '../../types';
-import { FOOD_CATEGORIES } from '../../services/mock-data';
+import { FOOD_CATEGORIES } from '../../constants/food-ui';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';

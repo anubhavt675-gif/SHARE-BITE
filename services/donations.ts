@@ -313,6 +313,29 @@ export const DonationsService = {
     }
 
     console.log('[ShareBite] Reservation created:', resId);
+
+    // Notify the donor that their listing was claimed
+    try {
+      const { data: listing } = await supabase
+        .from('food_listings')
+        .select('donor_id, title')
+        .eq('id', donationId)
+        .single();
+
+      if (listing?.donor_id) {
+        await supabase.from('notifications').insert({
+          user_id: listing.donor_id,
+          type: 'donation_claimed',
+          title: '✅ Your donation was claimed!',
+          message: `An NGO has reserved your "${listing.title}" donation. Please keep it ready for pickup.`,
+          is_read: false,
+        });
+      }
+    } catch (notifErr) {
+      // Non-fatal — claim succeeded, notification is best-effort
+      console.warn('[ShareBite] Donor notification failed:', notifErr);
+    }
+
     return true;
   },
 
