@@ -37,30 +37,29 @@ export function Input({
   required,
   ...props
 }: InputProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
   const borderColor = error
     ? Colors.error
     : isFocused
-    ? theme.colors.primary
-    : theme.colors.border;
+    ? Colors.primary          // Terracotta focus accent
+    : theme.colors.border;    // Warm beige default
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: theme.colors.text }]}>
-          {label}
-          {required && <Text style={{ color: Colors.error }}> *</Text>}
+        <Text style={[styles.label, { color: theme.colors.textTertiary }]}>
+          {label.toUpperCase()}{required && <Text style={{ color: Colors.error }}> *</Text>}
         </Text>
       )}
       <View
         style={[
           styles.inputWrapper,
           {
-            backgroundColor: theme.colors.surface, // Tactile cream/ivory fill
+            backgroundColor: theme.colors.inputBg,
             borderColor,
-            borderWidth: isFocused || error ? 1.2 : 1,
+            borderWidth: isFocused || error ? 1.5 : 1,
           },
         ]}
       >
@@ -110,11 +109,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   label: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
+    fontFamily: FontFamily.outfitBold,
+    fontSize: 9,
     marginBottom: Spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -125,8 +123,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: FontSize.md,
-    paddingVertical: Spacing.sm,
+    fontSize: FontSize.base,
+    paddingVertical: Spacing.sm + 2,
   },
   leftIcon: {
     paddingLeft: Spacing.base,

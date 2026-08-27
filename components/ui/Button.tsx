@@ -10,14 +10,13 @@ import {
   TextStyle,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { Radius, Spacing } from '../../constants/spacing';
 import { FontFamily, FontSize } from '../../constants/typography';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent' | 'tertiary';
 type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps {
@@ -35,10 +34,10 @@ interface ButtonProps {
 }
 
 const sizes: Record<ButtonSize, { paddingV: number; paddingH: number; fontSize: number; height: number }> = {
-  sm: { paddingV: 8, paddingH: 16, fontSize: FontSize.sm, height: 36 },
-  md: { paddingV: 12, paddingH: 20, fontSize: FontSize.base, height: 44 },
-  lg: { paddingV: 15, paddingH: 24, fontSize: FontSize.lg, height: 52 },
-  xl: { paddingV: 18, paddingH: 28, fontSize: FontSize.xl, height: 60 },
+  sm: { paddingV: 7,  paddingH: 14, fontSize: FontSize.xs,   height: 34 },
+  md: { paddingV: 10, paddingH: 18, fontSize: FontSize.sm,   height: 42 },
+  lg: { paddingV: 13, paddingH: 22, fontSize: FontSize.base, height: 50 },
+  xl: { paddingV: 16, paddingH: 26, fontSize: FontSize.lg,   height: 56 },
 };
 
 export function Button({
@@ -65,6 +64,7 @@ export function Button({
 
   const isDisabled = disabled || isLoading;
 
+  // ── Primary (Terracotta fill) ─────────────────────────────────────
   if (variant === 'primary') {
     return (
       <TouchableOpacity
@@ -74,11 +74,10 @@ export function Button({
         style={[
           styles.btn,
           {
-            backgroundColor: isDisabled ? '#D4CFC5' : Colors.primary,
-            borderColor: Colors.textPrimary,
-            borderWidth: 1,
+            backgroundColor: isDisabled ? Colors.surfaceVariant : Colors.primary,
             height: sizeConfig.height,
             paddingHorizontal: sizeConfig.paddingH,
+            borderRadius: Radius.sm,
           },
           fullWidth && styles.fullWidth,
           style,
@@ -88,7 +87,7 @@ export function Button({
         accessibilityState={{ disabled: isDisabled }}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <ActivityIndicator color={Colors.textInverse} size="small" />
         ) : (
           <View style={styles.content}>
             {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
@@ -102,6 +101,7 @@ export function Button({
     );
   }
 
+  // ── Accent (Olive fill) ───────────────────────────────────────────
   if (variant === 'accent') {
     return (
       <TouchableOpacity
@@ -111,11 +111,10 @@ export function Button({
         style={[
           styles.btn,
           {
-            backgroundColor: isDisabled ? '#D4CFC5' : Colors.accent,
-            borderColor: Colors.textPrimary,
-            borderWidth: 1,
+            backgroundColor: isDisabled ? Colors.surfaceVariant : Colors.accent,
             height: sizeConfig.height,
             paddingHorizontal: sizeConfig.paddingH,
+            borderRadius: Radius.sm,
           },
           fullWidth && styles.fullWidth,
           style,
@@ -124,7 +123,7 @@ export function Button({
         accessibilityLabel={label}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <ActivityIndicator color={Colors.textInverse} size="small" />
         ) : (
           <View style={styles.content}>
             {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
@@ -138,16 +137,39 @@ export function Button({
     );
   }
 
+  // ── Tertiary (text-only with terracotta accent) ───────────────────
+  if (variant === 'tertiary') {
+    return (
+      <TouchableOpacity
+        onPress={handlePress}
+        disabled={isDisabled}
+        activeOpacity={0.7}
+        style={[styles.btn, { height: sizeConfig.height, paddingHorizontal: 4 }, style]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <View style={styles.content}>
+          {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+          <Text style={[styles.textTertiary, { fontSize: sizeConfig.fontSize }, textStyle]}>
+            {label}
+          </Text>
+          {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // ── Variant styles for remaining types ────────────────────────────
   const variantStyles: Record<string, ViewStyle> = {
     secondary: {
-      backgroundColor: theme.colors.surfaceVariant,
+      backgroundColor: Colors.surface,
       borderWidth: 1,
-      borderColor: theme.colors.border,
+      borderColor: Colors.border,
     },
     outline: {
       backgroundColor: 'transparent',
       borderWidth: 1.2,
-      borderColor: theme.colors.primary,
+      borderColor: Colors.primary,
     },
     ghost: {
       backgroundColor: 'transparent',
@@ -162,8 +184,8 @@ export function Button({
 
   const variantTextColors: Record<string, string> = {
     secondary: theme.colors.text,
-    outline: theme.colors.primary,
-    ghost: theme.colors.primary,
+    outline: Colors.primary,
+    ghost: Colors.primary,
     danger: Colors.error,
   };
 
@@ -171,11 +193,15 @@ export function Button({
     <TouchableOpacity
       onPress={handlePress}
       disabled={isDisabled}
-      activeOpacity={0.8}
+      activeOpacity={0.82}
       style={[
         styles.btn,
         variantStyles[variant],
-        { height: sizeConfig.height, paddingHorizontal: sizeConfig.paddingH },
+        {
+          height: sizeConfig.height,
+          paddingHorizontal: sizeConfig.paddingH,
+          borderRadius: Radius.sm,
+        },
         isDisabled && styles.disabled,
         fullWidth && styles.fullWidth,
         style,
@@ -206,7 +232,6 @@ export function Button({
 
 const styles = StyleSheet.create({
   btn: {
-    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -220,12 +245,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   textPrimary: {
-    color: '#FAF8F1',
-    fontFamily: FontFamily.outfitBold,
-    letterSpacing: 0.3,
+    color: Colors.textInverse,
+    fontFamily: FontFamily.outfitSemiBold,
+    letterSpacing: 0.2,
   },
   textBase: {
     fontFamily: FontFamily.outfitSemiBold,
+    letterSpacing: 0.2,
+  },
+  textTertiary: {
+    fontFamily: FontFamily.outfitSemiBold,
+    color: Colors.primary,
     letterSpacing: 0.2,
   },
   iconLeft: {
@@ -235,6 +265,6 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.48,
   },
 });

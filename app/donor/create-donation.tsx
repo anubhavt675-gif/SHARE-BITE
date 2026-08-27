@@ -560,15 +560,14 @@ export default function CreateDonationScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}
+          accessibilityLabel="Go back">
+          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Share Food — Step {step + 1} of {TOTAL_STEPS}
-          </Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Share Food</Text>
           <Text style={[styles.headerSub, { color: theme.colors.textSecondary }]}>
-            {stepLabels[step]}
+            {stepLabels[step]} · {step + 1} of {TOTAL_STEPS}
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -590,10 +589,10 @@ export default function CreateDonationScreen() {
             <Button label="Continue →" onPress={handleNext} variant="primary" size="xl" />
           ) : (
             <Button
-              label="Share Food 🌱"
+              label="Share This Meal"
               onPress={handleSubmit}
               variant="primary"
-              size="xl"
+              size="lg"
               isLoading={submitting}
               disabled={!form.isSafeConfirmed}
             />
@@ -620,14 +619,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize.lg,
+    letterSpacing: 0.2,
   },
   headerSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
     fontStyle: 'italic',
-    marginTop: 1,
+    marginTop: 2,
+    color: Colors.textSecondary,
   },
   stepIndicator: {
     flexDirection: 'row',

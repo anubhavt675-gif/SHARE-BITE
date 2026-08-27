@@ -28,8 +28,12 @@ export default function SettingsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.backBtn, { borderColor: theme.colors.border }]}
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={18} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.colors.text }]}>Settings</Text>
           <View style={{ width: 40 }} />
@@ -135,12 +139,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.base,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 6, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   title: {
     flex: 1,
-    fontFamily: FontFamily.outfitBold,
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize.xl,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   section: {
     paddingHorizontal: Spacing.xl,

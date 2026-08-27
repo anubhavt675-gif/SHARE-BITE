@@ -10,11 +10,11 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Card } from '../../components/ui/Card';
+import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { ImpactService } from '../../services/impact';
 import { ImpactStats } from '../../types';
 import { MOCK_COMMUNITY_IMPACT } from '../../services/mock-data';
@@ -24,47 +24,44 @@ import { Spacing, Radius, Shadow } from '../../constants/spacing';
 
 const { width } = Dimensions.get('window');
 
-// Animated number counter
+// ── Animated editorial number ─────────────────────────────────────────────────
 function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const { theme } = useTheme();
   const animValue = useRef(new Animated.Value(0)).current;
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
+    const id = animValue.addListener(({ value: v }) => setDisplayValue(Math.round(v)));
     Animated.timing(animValue, {
       toValue: value,
-      duration: 1200,
+      duration: 1100,
       useNativeDriver: false,
     }).start();
-    animValue.addListener(({ value: v }) => setDisplayValue(Math.round(v)));
-    return () => animValue.removeAllListeners();
+    return () => animValue.removeListener(id);
   }, [value]);
 
-  return (
-    <Text style={[styles.metricValue, { color: Colors.primary }]}>
-      {displayValue.toLocaleString()}{suffix}
-    </Text>
-  );
+  return <>{displayValue.toLocaleString()}{suffix}</>;
 }
 
-interface MetricCardProps {
-  icon: string;
-  emoji: string;
+// ── Metric card ───────────────────────────────────────────────────────────────
+interface MetricProps {
+  iconName: string;
   title: string;
   value: number;
   suffix?: string;
   subtitle?: string;
-  gradient?: readonly [string, string];
+  accentColor: string;
 }
 
-function MetricCard({ icon, emoji, title, value, suffix, subtitle, gradient }: MetricCardProps) {
+function MetricCard({ iconName, title, value, suffix, subtitle, accentColor }: MetricProps) {
   const { theme, isDark } = useTheme();
   return (
-    <Card style={[styles.metricCard, isDark ? Shadow.dark : Shadow.md]} padding={16}>
-      <View style={[styles.metricIcon, { backgroundColor: Colors.primaryAlpha10 }]}>
-        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+    <Card style={[styles.metricCard, isDark ? Shadow.dark : Shadow.sm]} padding={Spacing.base}>
+      <View style={[styles.metricIconWrap, { backgroundColor: `${accentColor}12` }]}>
+        <Ionicons name={iconName as any} size={18} color={accentColor} />
       </View>
-      <AnimatedNumber value={value} suffix={suffix} />
+      <Text style={[styles.metricValue, { color: accentColor }]}>
+        <AnimatedNumber value={value} suffix={suffix} />
+      </Text>
       <Text style={[styles.metricTitle, { color: theme.colors.text }]}>{title}</Text>
       {subtitle && (
         <Text style={[styles.metricSub, { color: theme.colors.textTertiary }]}>{subtitle}</Text>
@@ -73,45 +70,67 @@ function MetricCard({ icon, emoji, title, value, suffix, subtitle, gradient }: M
   );
 }
 
+// ── Progress bar ──────────────────────────────────────────────────────────────
 function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const { theme } = useTheme();
-  const progress = Math.min(value / max, 1);
   const animWidth = useRef(new Animated.Value(0)).current;
+  const progress = Math.min(value / max, 1);
 
   useEffect(() => {
     Animated.timing(animWidth, {
       toValue: progress,
-      duration: 1000,
+      duration: 900,
       useNativeDriver: false,
     }).start();
   }, [progress]);
 
-  const barWidth = animWidth.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
+  const barWidth = animWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   return (
     <View style={styles.progressRow}>
       <View style={styles.progressHeader}>
-        <Text style={[styles.progressLabel, { color: theme.colors.text }]}>{label}</Text>
-        <Text style={[styles.progressValue, { color: color }]}>{value.toLocaleString()}</Text>
+        <Text style={[styles.progressLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.progressValueText, { color: color }]}>{value.toLocaleString()}</Text>
       </View>
       <View style={[styles.progressTrack, { backgroundColor: theme.colors.surfaceVariant }]}>
-        <Animated.View
-          style={[styles.progressFill, { width: barWidth, backgroundColor: color }]}
-        />
+        <Animated.View style={[styles.progressFill, { width: barWidth, backgroundColor: color }]} />
       </View>
     </View>
   );
 }
 
+// ── Milestone badge ───────────────────────────────────────────────────────────
+function MilestoneBadge({ title, desc, earned }: { title: string; desc: string; earned: boolean }) {
+  const { theme } = useTheme();
+  return (
+    <View style={[
+      styles.milestone,
+      {
+        backgroundColor: theme.colors.surface,
+        borderColor: earned ? Colors.primary : theme.colors.border,
+        opacity: earned ? 1 : 0.55,
+      },
+    ]}>
+      <View style={[styles.milestoneDot, { backgroundColor: earned ? Colors.primary : theme.colors.border }]} />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.milestoneTitle, { color: theme.colors.text }]}>{title}</Text>
+        <Text style={[styles.milestoneSub, { color: theme.colors.textSecondary }]}>{desc}</Text>
+      </View>
+      {earned && (
+        <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
+      )}
+    </View>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function ImpactScreen() {
   const { user } = useAuth();
   const { theme, isDark } = useTheme();
   const [impact, setImpact] = useState<ImpactStats | null>(null);
   const [loading, setLoading] = useState(true);
   const isNGO = user?.role === 'ngo';
+  const community = MOCK_COMMUNITY_IMPACT;
 
   useEffect(() => {
     ImpactService.getUserImpact(user?.id ?? '', user?.role ?? 'donor').then(data => {
@@ -120,164 +139,136 @@ export default function ImpactScreen() {
     });
   }, [user]);
 
-  const community = MOCK_COMMUNITY_IMPACT;
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Hero Banner */}
-        <LinearGradient
-          colors={isDark ? [Colors.surfaceDark ?? '#1A2E1F', '#0F1A14'] : Colors.gradientHero}
-          style={styles.heroBanner}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.heroTag}>🌍 Your Impact</Text>
-          <Text style={styles.heroTitle}>
-            {impact ? impact.mealsSaved.toLocaleString() : '—'}
-          </Text>
-          <Text style={styles.heroSubtitle}>Meals Saved</Text>
-          <Text style={styles.heroCopy}>
-            Every meal counts. Keep going!
-          </Text>
 
-          {/* SDG Badges */}
+        {/* ── Editorial Header ── */}
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageLabel}>YOUR IMPACT</Text>
+          <View style={styles.heroNumberRow}>
+            <Text style={[styles.heroNumber, { color: theme.colors.text }]}>
+              {impact ? impact.mealsSaved.toLocaleString() : '—'}
+            </Text>
+            <View style={styles.heroMeta}>
+              <Text style={[styles.heroUnit, { color: theme.colors.textSecondary }]}>
+                Meals{'\n'}Rescued
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.heroCaption, { color: theme.colors.textSecondary }]}>
+            Small actions. Fewer wasted meals.
+          </Text>
+          <HandDrawnSeparator />
+
+          {/* SDG Indicators — minimal */}
           <View style={styles.sdgRow}>
-            {['SDG 2', 'SDG 12', 'SDG 13'].map(sdg => (
-              <View key={sdg} style={styles.sdgBadge}>
-                <Text style={styles.sdgText}>{sdg}</Text>
+            {['SDG 2 · Zero Hunger', 'SDG 12 · Responsible Consumption', 'SDG 13 · Climate Action'].map(sdg => (
+              <View key={sdg} style={[styles.sdgTag, { borderColor: theme.colors.border }]}>
+                <Text style={[styles.sdgTagText, { color: theme.colors.textTertiary }]}>{sdg}</Text>
               </View>
             ))}
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* Personal Metrics */}
+        {/* ── Personal Metrics ── */}
         <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{isNGO ? 'FOOD RESCUED' : 'FOOD DONATED'}</Text>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            {isNGO ? 'Food Rescued' : 'Food Donated'}
+            {isNGO ? 'Your Rescue Record' : 'Your Donations'}
           </Text>
-
           <View style={styles.metricsGrid}>
             {impact && (
               <>
                 <MetricCard
-                  emoji="🍽️"
-                  icon="restaurant"
+                  iconName="restaurant-outline"
                   title="Meals Saved"
                   value={impact.mealsSaved}
+                  accentColor={Colors.primary}
                 />
                 <MetricCard
-                  emoji="📦"
-                  icon="cube"
-                  title="Food Distributed"
+                  iconName="cube-outline"
+                  title="Food Shared"
                   value={impact.foodRedistributedKg}
                   suffix="kg"
+                  accentColor={Colors.accent}
                 />
                 <MetricCard
-                  emoji="👥"
-                  icon="people"
+                  iconName="people-outline"
                   title="People Reached"
                   value={impact.peopleReached}
+                  accentColor={Colors.textPrimary}
                 />
                 <MetricCard
-                  emoji="🌱"
-                  icon="leaf"
-                  title="CO₂ Prevented"
+                  iconName="leaf-outline"
+                  title="CO₂ Reduced"
                   value={impact.co2SavedKg}
                   suffix="kg"
-                  subtitle="Equivalent to driving 250km less"
+                  subtitle="~250km less driven"
+                  accentColor={Colors.accent}
                 />
               </>
             )}
           </View>
         </View>
 
-        {/* Community Impact */}
+        {/* ── Milestones ── */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            🌏 Community Impact
-          </Text>
+          <Text style={styles.sectionLabel}>MILESTONES</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Journey</Text>
+          <View style={styles.milestonesCol}>
+            <MilestoneBadge title="First Meal Shared" desc="You made your first food donation" earned={true} />
+            <MilestoneBadge title="10 Meals Rescued" desc="Reached your first 10 meal milestone" earned={(impact?.mealsSaved ?? 0) >= 10} />
+            <MilestoneBadge title="50 Servings" desc="50 servings of food kept from waste" earned={(impact?.mealsSaved ?? 0) >= 50} />
+            <MilestoneBadge title="Community Pillar" desc="100+ meals shared with the community" earned={(impact?.mealsSaved ?? 0) >= 100} />
+          </View>
+        </View>
 
-          <Card style={[isDark ? Shadow.dark : Shadow.md]} padding={Spacing.lg}>
+        {/* ── Community Impact ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>NETWORK</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Community Impact</Text>
+
+          <Card style={isDark ? Shadow.dark : Shadow.sm} padding={Spacing.lg}>
             <View style={styles.communityHeader}>
               <View>
                 <Text style={[styles.communityTitle, { color: theme.colors.text }]}>
                   ShareBite Network
                 </Text>
                 <Text style={[styles.communitySub, { color: theme.colors.textSecondary }]}>
-                  This month's collective impact
+                  This month's collective
                 </Text>
               </View>
-              <View style={[styles.badgeCircle, { backgroundColor: Colors.primaryAlpha10 }]}>
-                <Ionicons name="globe-outline" size={24} color={Colors.primary} />
+              <View style={[styles.globeCircle, { backgroundColor: Colors.primaryAlpha12 }]}>
+                <Ionicons name="globe-outline" size={20} color={Colors.primary} />
               </View>
             </View>
 
             <View style={styles.communityStats}>
               {[
                 { label: 'Active Donors', value: community.activeDonors, color: Colors.primary },
-                { label: 'Partner NGOs', value: community.activeNGOs, color: Colors.accent },
-                { label: 'Cities Covered', value: community.citiesCovered, color: Colors.yellow },
+                { label: 'Partner NGOs',  value: community.activeNGOs,   color: Colors.accent },
+                { label: 'Cities',        value: community.citiesCovered, color: Colors.textPrimary },
               ].map(stat => (
-                <View key={stat.label} style={styles.communityStat}>
-                  <Text style={[styles.communityStatValue, { color: stat.color }]}>
+                <View key={stat.label} style={styles.commStat}>
+                  <Text style={[styles.commStatValue, { color: stat.color }]}>
                     {stat.value.toLocaleString()}
                   </Text>
-                  <Text style={[styles.communityStatLabel, { color: theme.colors.textSecondary }]}>
+                  <Text style={[styles.commStatLabel, { color: theme.colors.textSecondary }]}>
                     {stat.label}
                   </Text>
                 </View>
               ))}
             </View>
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
 
-            <ProgressBar
-              label="Meals this month"
-              value={community.thisMonthMeals}
-              max={20000}
-              color={Colors.primary}
-            />
+            <ProgressBar label="Meals this month"         value={community.thisMonthMeals}       max={20000} color={Colors.primary} />
             <View style={{ height: Spacing.sm }} />
-            <ProgressBar
-              label="Food redistributed (kg)"
-              value={community.foodRedistributedKg}
-              max={50000}
-              color={Colors.accent}
-            />
+            <ProgressBar label="Food redistributed (kg)"  value={community.foodRedistributedKg}  max={50000} color={Colors.accent} />
             <View style={{ height: Spacing.sm }} />
-            <ProgressBar
-              label="CO₂ saved (kg)"
-              value={community.co2SavedKg}
-              max={100000}
-              color={Colors.yellow}
-            />
+            <ProgressBar label="CO₂ saved (kg)"           value={community.co2SavedKg}           max={100000} color={Colors.textSecondary} />
           </Card>
-        </View>
-
-        {/* SDG Alignment */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            🎯 SDG Alignment
-          </Text>
-          <View style={styles.sdgCards}>
-            {[
-              { sdg: 'SDG 2', icon: '🌾', title: 'Zero Hunger', desc: 'Redirecting surplus food to hungry communities via NGOs.' },
-              { sdg: 'SDG 12', icon: '♻️', title: 'Responsible Consumption', desc: 'Preventing food waste by enabling timely redistribution.' },
-              { sdg: 'SDG 13', icon: '🌍', title: 'Climate Action', desc: 'Reducing methane emissions from food decomposing in landfills.' },
-            ].map(item => (
-              <Card key={item.sdg} style={[isDark ? Shadow.dark : Shadow.sm, { marginBottom: Spacing.sm }]} padding={14}>
-                <View style={styles.sdgCardHeader}>
-                  <Text style={{ fontSize: 24 }}>{item.icon}</Text>
-                  <View style={[styles.sdgTag, { backgroundColor: Colors.primaryAlpha10 }]}>
-                    <Text style={[styles.sdgTagText, { color: Colors.primary }]}>{item.sdg}</Text>
-                  </View>
-                </View>
-                <Text style={[styles.sdgCardTitle, { color: theme.colors.text }]}>{item.title}</Text>
-                <Text style={[styles.sdgCardDesc, { color: theme.colors.textSecondary }]}>{item.desc}</Text>
-              </Card>
-            ))}
-          </View>
         </View>
 
         <View style={{ height: Spacing['3xl'] }} />
@@ -286,69 +277,88 @@ export default function ImpactScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: Spacing['2xl'] },
-  // Hero
-  heroBanner: {
+
+  // ── Page Header ──
+  pageHeader: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing['2xl'],
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    marginBottom: Spacing.xl,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
   },
-  heroTag: {
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
+  pageLabel: {
+    fontSize: 9,
+    fontFamily: FontFamily.outfitBold,
+    letterSpacing: 1.2,
+    color: Colors.primary,
+    marginBottom: Spacing.md,
+  },
+  heroNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  heroTitle: {
-    color: '#fff',
-    fontFamily: FontFamily.outfitBlack,
+  heroNumber: {
+    fontFamily: FontFamily.serifDisplay,
     fontSize: 56,
     letterSpacing: -2,
     lineHeight: 60,
   },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize['2xl'],
-    marginBottom: Spacing.sm,
+  heroMeta: {
+    marginBottom: 8,
   },
-  heroCopy: {
-    color: 'rgba(255,255,255,0.7)',
+  heroUnit: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.base,
-    marginBottom: Spacing.lg,
+    fontSize: FontSize.sm,
+    lineHeight: FontSize.sm * 1.4,
+  },
+  heroCaption: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.sm,
+    fontStyle: 'italic',
+    marginBottom: Spacing.xs,
   },
   sdgRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
-  sdgBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
+  sdgTag: {
+    borderWidth: 1,
+    borderRadius: Radius.xs,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
-  sdgText: {
-    color: '#fff',
+  sdgTagText: {
     fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.xs,
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
-  // Sections
+
+  // ── Sections ──
   section: {
     paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  sectionLabel: {
+    fontSize: 9,
+    fontFamily: FontFamily.outfitBold,
+    letterSpacing: 1.2,
+    color: Colors.primary,
+    marginBottom: 3,
   },
   sectionTitle: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.lg,
-    marginBottom: Spacing.base,
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize.xl + 1,
+    letterSpacing: 0.2,
+    marginBottom: Spacing.md,
   },
-  // Metrics Grid
+
+  // ── Metrics Grid ──
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -359,15 +369,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  metricIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  metricIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   metricValue: {
-    fontFamily: FontFamily.outfitBlack,
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize['3xl'],
     letterSpacing: -0.5,
   },
@@ -382,7 +392,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: FontSize.xs * 1.4,
   },
-  // Community
+
+  // ── Milestones ──
+  milestonesCol: {
+    gap: Spacing.sm,
+  },
+  milestone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+  },
+  milestoneDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  milestoneTitle: {
+    fontFamily: FontFamily.outfitSemiBold,
+    fontSize: FontSize.sm,
+    marginBottom: 2,
+  },
+  milestoneSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.xs,
+  },
+
+  // ── Community ──
   communityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -390,18 +429,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   communityTitle: {
-    fontFamily: FontFamily.outfitBold,
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize.lg,
+    marginBottom: 2,
   },
   communitySub: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    marginTop: 2,
+    fontSize: FontSize.xs,
   },
-  badgeCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  globeCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -409,12 +448,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: Spacing.base,
   },
-  communityStat: { flex: 1, alignItems: 'center' },
-  communityStatValue: {
-    fontFamily: FontFamily.outfitBold,
+  commStat: { flex: 1, alignItems: 'center' },
+  commStatValue: {
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize['2xl'],
+    letterSpacing: -0.3,
   },
-  communityStatLabel: {
+  commStatLabel: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
     textAlign: 'center',
@@ -422,58 +462,32 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#E0EDE5',
     marginBottom: Spacing.base,
+    marginTop: Spacing.xs,
   },
-  // Progress
-  progressRow: { marginBottom: Spacing.sm },
+
+  // ── Progress ──
+  progressRow: { marginBottom: Spacing.xs },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   progressLabel: {
-    fontFamily: FontFamily.outfitMedium,
-    fontSize: FontSize.sm,
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.xs,
   },
-  progressValue: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.sm,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
-  },
-  // SDG Cards
-  sdgCards: {},
-  sdgCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-  },
-  sdgTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.full,
-  },
-  sdgTagText: {
+  progressValueText: {
     fontFamily: FontFamily.outfitSemiBold,
     fontSize: FontSize.xs,
   },
-  sdgCardTitle: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.md,
-    marginBottom: 4,
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
-  sdgCardDesc: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    lineHeight: FontSize.sm * 1.5,
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
   },
 });

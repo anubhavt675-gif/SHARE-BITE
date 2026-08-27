@@ -13,46 +13,48 @@ interface StatusChipProps {
   size?: 'sm' | 'md';
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  AVAILABLE: { bg: 'transparent', text: '#626A3A', dot: '#626A3A' },
-  CLAIMED: { bg: 'transparent', text: '#4F6379', dot: '#4F6379' },
-  PICKUP_CONFIRMED: { bg: 'transparent', text: '#B96F52', dot: '#B96F52' },
-  PICKED_UP: { bg: 'transparent', text: '#B96F52', dot: '#B96F52' },
-  COMPLETED: { bg: 'transparent', text: '#54544D', dot: '#54544D' },
-  CANCELLED: { bg: 'transparent', text: '#A24836', dot: '#A24836' },
-  EXPIRED: { bg: 'transparent', text: '#A24836', dot: '#A24836' },
-  FRESH: { bg: 'transparent', text: '#626A3A', dot: '#626A3A' },
-  PICKUP_SOON: { bg: 'transparent', text: '#B96F52', dot: '#B96F52' },
-  URGENT: { bg: 'transparent', text: '#A24836', dot: '#A24836' },
-  verified: { bg: 'transparent', text: '#626A3A', dot: '#626A3A' },
-  pending: { bg: 'transparent', text: '#D5A467', dot: '#D5A467' },
-  rejected: { bg: 'transparent', text: '#A24836', dot: '#A24836' },
-  under_review: { bg: 'transparent', text: '#4F6379', dot: '#4F6379' },
+// Subtle pill colors: very light background tint + matching dot + text
+const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> = {
+  AVAILABLE:         { bg: 'rgba(104, 115, 77, 0.10)',  text: '#52593B',  dot: '#68734D' },
+  CLAIMED:           { bg: 'rgba(85, 107, 122, 0.10)',   text: '#45596A',  dot: '#556B7A' },
+  PICKUP_CONFIRMED:  { bg: 'rgba(169, 97, 77, 0.10)',   text: '#8C4E3D',  dot: '#A9614D' },
+  PICKED_UP:         { bg: 'rgba(169, 97, 77, 0.10)',   text: '#8C4E3D',  dot: '#A9614D' },
+  COMPLETED:         { bg: 'rgba(111, 106, 97, 0.10)',  text: '#5A5650',  dot: '#6F6A61' },
+  CANCELLED:         { bg: 'rgba(166, 83, 67, 0.10)',   text: '#8C4435',  dot: '#A65343' },
+  EXPIRED:           { bg: 'rgba(166, 83, 67, 0.10)',   text: '#8C4435',  dot: '#A65343' },
+  FRESH:             { bg: 'rgba(104, 115, 77, 0.10)',  text: '#52593B',  dot: '#68734D' },
+  PICKUP_SOON:       { bg: 'rgba(169, 97, 77, 0.10)',   text: '#8C4E3D',  dot: '#A9614D' },
+  URGENT:            { bg: 'rgba(166, 83, 67, 0.12)',   text: '#8C4435',  dot: '#A65343' },
+  // Verification statuses
+  verified:          { bg: 'rgba(104, 115, 77, 0.10)',  text: '#52593B',  dot: '#68734D' },
+  pending:           { bg: 'rgba(196, 151, 74, 0.12)',  text: '#7A5E28',  dot: '#C4974A' },
+  rejected:          { bg: 'rgba(166, 83, 67, 0.10)',   text: '#8C4435',  dot: '#A65343' },
+  under_review:      { bg: 'rgba(85, 107, 122, 0.10)',  text: '#45596A',  dot: '#556B7A' },
 };
 
 export function StatusChip({ status, label, size = 'sm' }: StatusChipProps) {
-  const colors = STATUS_COLORS[status] ?? {
-    bg: 'transparent',
-    text: '#54544D',
-    dot: '#8A8A80',
+  const config = STATUS_CONFIG[status] ?? {
+    bg: 'rgba(111, 106, 97, 0.10)',
+    text: Colors.textSecondary,
+    dot: Colors.textTertiary,
   };
 
   const displayLabel = label ?? status.replace(/_/g, ' ');
   const isSmall = size === 'sm';
 
   return (
-    <View style={[styles.chip, { borderColor: colors.dot, borderStyle: 'solid' }]}>
-      <View style={[styles.dot, { backgroundColor: colors.dot }]} />
+    <View style={[styles.chip, { backgroundColor: config.bg }]}>
+      <View style={[styles.dot, { backgroundColor: config.dot }]} />
       <Text
         style={[
           styles.text,
           {
-            color: colors.text,
-            fontSize: isSmall ? FontSize.xs - 2 : FontSize.xs,
+            color: config.text,
+            fontSize: isSmall ? 9 : FontSize.xs,
           },
         ]}
       >
-        {displayLabel}
+        {displayLabel.toUpperCase()}
       </Text>
     </View>
   );
@@ -62,9 +64,8 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: Radius.xs,
     alignSelf: 'flex-start',
   },
@@ -72,11 +73,10 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginRight: 4,
+    marginRight: 5,
   },
   text: {
     fontFamily: FontFamily.outfitSemiBold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
 });

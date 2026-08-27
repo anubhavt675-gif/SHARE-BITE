@@ -13,12 +13,12 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { BotanicalSprig, HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
@@ -26,7 +26,7 @@ import { UserRole } from '../../types';
 
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const params = useLocalSearchParams<{ role?: string }>();
 
   const [phone, setPhone] = useState('');
@@ -57,84 +57,61 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <LinearGradient
-            colors={isDark ? [Colors.surfaceDark ?? '#1A2E1F', Colors.backgroundDark ?? '#0F1A14'] : Colors.gradientCard}
-            style={styles.headerBg}
-          >
+          {/* ── Header ── */}
+          <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.back()}
-              style={[styles.backBtn, { backgroundColor: theme.colors.surfaceVariant }]}
+              style={[styles.backBtn, { borderColor: theme.colors.border }]}
+              accessibilityLabel="Go back"
             >
-              <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
+              <Ionicons name="arrow-back" size={18} color={theme.colors.text} />
             </TouchableOpacity>
 
-            <View style={styles.brandRow}>
-              <LinearGradient
-                colors={Colors.gradientPrimary}
-                style={styles.logoCircle}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={{ fontSize: 22 }}>🍃</Text>
-              </LinearGradient>
-              <View>
-                <Text style={[styles.brandName, { color: theme.colors.text }]}>
-                  <Text style={{ color: Colors.primary }}>Share</Text>
-                  <Text style={{ color: Colors.accent }}>Bite</Text>
-                </Text>
-                <Text style={[styles.welcomeBack, { color: theme.colors.textSecondary }]}>
-                  Welcome back!
-                </Text>
+            <View style={styles.brandBlock}>
+              <View style={[styles.brandCircle, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+                <BotanicalSprig size={30} color={Colors.primary} />
+              </View>
+              <View style={styles.brandName}>
+                <Text style={[styles.brandShare, { color: Colors.primary }]}>Share</Text>
+                <Text style={[styles.brandBite, { color: Colors.accent }]}>Bite</Text>
               </View>
             </View>
-          </LinearGradient>
 
-          {/* Form */}
+            <Text style={[styles.heading, { color: theme.colors.text }]}>Welcome back</Text>
+            <Text style={[styles.subheading, { color: theme.colors.textSecondary }]}>
+              Sign in to continue your food journey.
+            </Text>
+            <HandDrawnSeparator />
+          </View>
+
+          {/* ── Form ── */}
           <View style={styles.form}>
-            {/* Role Toggle */}
-            <View style={[styles.roleToggle, { backgroundColor: theme.colors.surfaceVariant }]}>
+            {/* Role selector */}
+            <Text style={[styles.roleLabel, { color: theme.colors.textTertiary }]}>SIGNING IN AS</Text>
+            <View style={styles.roleRow}>
               {(['donor', 'ngo'] as UserRole[]).map(role => (
                 <TouchableOpacity
                   key={role}
                   onPress={() => setSelectedRole(role)}
                   style={[
-                    styles.roleTab,
-                    selectedRole === role && {
-                      backgroundColor: theme.colors.surface,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 4,
-                      elevation: 2,
+                    styles.roleChip,
+                    {
+                      backgroundColor: selectedRole === role ? Colors.primary : 'transparent',
+                      borderColor: selectedRole === role ? Colors.primary : theme.colors.border,
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.roleTabText,
-                      {
-                        color:
-                          selectedRole === role
-                            ? Colors.primary
-                            : theme.colors.textSecondary,
-                        fontFamily:
-                          selectedRole === role
-                            ? FontFamily.outfitSemiBold
-                            : FontFamily.outfitRegular,
-                      },
-                    ]}
-                  >
-                    {role === 'donor' ? '🍛 Food Donor' : '🤝 NGO / Shelter'}
+                  <Text style={[
+                    styles.roleChipText,
+                    { color: selectedRole === role ? Colors.textInverse : theme.colors.textSecondary },
+                  ]}>
+                    {role === 'donor' ? 'Food Donor' : 'NGO / Shelter'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -142,28 +119,28 @@ export default function LoginScreen() {
 
             <Input
               label="Phone Number"
-              placeholder="Enter your phone number"
+              placeholder="e.g. 9876543210"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
               error={errors.phone}
               required
-              leftIcon={<Ionicons name="call-outline" size={18} color={theme.colors.textTertiary} />}
+              leftIcon={<Ionicons name="call-outline" size={16} color={theme.colors.textTertiary} />}
             />
 
             <Input
               label="Password"
-              placeholder="Enter your password"
+              placeholder="Your password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               error={errors.password}
               required
-              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={theme.colors.textTertiary} />}
+              leftIcon={<Ionicons name="lock-closed-outline" size={16} color={theme.colors.textTertiary} />}
               rightIcon={
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
+                  size={16}
                   color={theme.colors.textTertiary}
                 />
               }
@@ -171,9 +148,7 @@ export default function LoginScreen() {
             />
 
             <TouchableOpacity style={styles.forgotPwd}>
-              <Text style={[styles.forgotText, { color: Colors.primary }]}>
-                Forgot Password?
-              </Text>
+              <Text style={[styles.forgotText, { color: Colors.primary }]}>Forgot password?</Text>
             </TouchableOpacity>
 
             <View style={{ height: Spacing.base }} />
@@ -182,28 +157,25 @@ export default function LoginScreen() {
               label="Log In"
               onPress={handleLogin}
               variant="primary"
-              size="xl"
+              size="lg"
               isLoading={isLoading}
             />
 
             <View style={styles.dividerRow}>
-              <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+              <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
               <Text style={[styles.dividerText, { color: theme.colors.textTertiary }]}>or</Text>
-              <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
+              <View style={[styles.dividerLine, { backgroundColor: theme.colors.divider }]} />
             </View>
 
             <Button
               label="Log In with OTP"
               onPress={() => router.push({ pathname: '/(auth)/otp', params: { phone } })}
               variant="outline"
-              size="lg"
-              icon={<Ionicons name="phone-portrait-outline" size={18} color={Colors.primary} />}
+              size="md"
+              icon={<Ionicons name="phone-portrait-outline" size={16} color={Colors.primary} />}
             />
 
-            <TouchableOpacity
-              onPress={() => router.push('/(auth)/signup')}
-              style={styles.signupLink}
-            >
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup')} style={styles.signupLink}>
               <Text style={[styles.signupText, { color: theme.colors.textSecondary }]}>
                 New to ShareBite?{' '}
                 <Text style={{ color: Colors.primary, fontFamily: FontFamily.outfitSemiBold }}>
@@ -212,11 +184,11 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Demo info */}
-            <View style={[styles.demoInfo, { backgroundColor: Colors.primaryAlpha10 }]}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+            {/* Demo Info */}
+            <View style={[styles.demoInfo, { backgroundColor: Colors.primaryAlpha08, borderColor: theme.colors.border }]}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
               <Text style={[styles.demoText, { color: Colors.primary }]}>
-                Demo: Any phone + password works. Select Donor or NGO role.
+                Demo: Any phone + password works. Select your role above.
               </Text>
             </View>
           </View>
@@ -229,70 +201,90 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: Spacing['3xl'] },
-  headerBg: {
+
+  // Header
+  header: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.base,
-    paddingBottom: Spacing['2xl'],
+    paddingBottom: Spacing.sm,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 36, height: 36, borderRadius: Radius.xs, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.xl,
   },
-  brandRow: {
+  brandBlock: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
-  logoCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandCircle: {
+    width: 52, height: 52, borderRadius: 26, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
   brandName: {
-    fontFamily: FontFamily.outfitBlack,
+    flexDirection: 'row',
+    alignSelf: 'center',
+  },
+  brandShare: {
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize['3xl'],
-    letterSpacing: -0.5,
+    letterSpacing: 0.3,
   },
-  welcomeBack: {
+  brandBite: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize['3xl'],
+    letterSpacing: 0.3,
+  },
+  heading: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize['3xl'],
+    letterSpacing: 0.2,
+    marginBottom: Spacing.xs,
+  },
+  subheading: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.base,
-    marginTop: 2,
+    fontSize: FontSize.sm,
+    fontStyle: 'italic',
+    marginBottom: Spacing.xs,
   },
+
+  // Form
   form: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing['2xl'],
+    paddingTop: Spacing.lg,
   },
-  roleToggle: {
+  roleLabel: {
+    fontSize: 9, fontFamily: FontFamily.outfitBold, letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  roleRow: {
     flexDirection: 'row',
-    borderRadius: Radius.lg,
-    padding: 4,
+    gap: Spacing.sm,
     marginBottom: Spacing.xl,
   },
-  roleTab: {
+  roleChip: {
     flex: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.md,
+    paddingVertical: 10,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
     alignItems: 'center',
   },
-  roleTabText: {
+  roleChipText: {
+    fontFamily: FontFamily.outfitSemiBold,
     fontSize: FontSize.sm,
   },
   forgotPwd: {
     alignSelf: 'flex-end',
     marginTop: -Spacing.sm,
     marginBottom: Spacing.md,
-    padding: Spacing.xs,
+    paddingVertical: 4,
   },
   forgotText: {
-    fontFamily: FontFamily.outfitMedium,
-    fontSize: FontSize.base,
+    fontFamily: FontFamily.outfitSemiBold,
+    fontSize: FontSize.xs + 1,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -300,10 +292,11 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginVertical: Spacing.base,
   },
-  divider: { flex: 1, height: 1 },
+  dividerLine: { flex: 1, height: 0.5 },
   dividerText: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
+    fontStyle: 'italic',
   },
   signupLink: {
     alignItems: 'center',
@@ -311,20 +304,21 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.base,
+    fontSize: FontSize.sm,
   },
   demoInfo: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: Radius.md,
-    marginTop: Spacing.base,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
+    marginTop: Spacing.sm,
   },
   demoText: {
     flex: 1,
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    lineHeight: FontSize.sm * 1.5,
+    fontSize: FontSize.xs + 1,
+    lineHeight: (FontSize.xs + 1) * 1.5,
   },
 });

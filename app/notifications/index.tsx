@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Card } from '../../components/ui/Card';
+import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { AppNotification } from '../../types';
 import { MOCK_NOTIFICATIONS } from '../../services/mock-data';
 import { Colors } from '../../constants/colors';
@@ -31,47 +31,66 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const NOTIF_ICONS: Record<string, { icon: string; color: string }> = {
-  new_donation: { icon: 'restaurant', color: Colors.primary },
-  donation_claimed: { icon: 'checkmark-circle', color: Colors.accent },
-  pickup_confirmed: { icon: 'bicycle', color: Colors.yellow },
-  donation_completed: { icon: 'trophy', color: Colors.primary },
-  donation_expiring: { icon: 'time', color: Colors.error },
-  verification_update: { icon: 'shield-checkmark', color: Colors.info },
-  impact_milestone: { icon: 'star', color: Colors.yellow },
+// Icon and color for each notification type
+const NOTIF_CONFIG: Record<string, { icon: string; color: string }> = {
+  new_donation:         { icon: 'restaurant-outline',      color: Colors.primary  },
+  donation_claimed:     { icon: 'checkmark-circle-outline', color: Colors.accent   },
+  pickup_confirmed:     { icon: 'bicycle-outline',          color: Colors.primary  },
+  donation_completed:   { icon: 'ribbon-outline',           color: Colors.accent   },
+  donation_expiring:    { icon: 'time-outline',             color: Colors.error    },
+  verification_update:  { icon: 'shield-checkmark-outline', color: Colors.accent   },
+  impact_milestone:     { icon: 'star-outline',             color: Colors.yellow   },
 };
 
-function NotificationItem({ notif }: { notif: AppNotification }) {
+function NotificationItem({
+  notif,
+  onMarkRead,
+}: {
+  notif: AppNotification;
+  onMarkRead?: () => void;
+}) {
   const { theme } = useTheme();
-  const config = NOTIF_ICONS[notif.type] ?? { icon: 'notifications', color: Colors.primary };
+  const config = NOTIF_CONFIG[notif.type] ?? { icon: 'notifications-outline', color: Colors.primary };
 
   return (
     <TouchableOpacity
+      onPress={onMarkRead}
       activeOpacity={0.85}
       style={[
         styles.notifItem,
         {
-          backgroundColor: notif.isRead ? theme.colors.surface : `${config.color}08`,
-          borderLeftColor: notif.isRead ? 'transparent' : config.color,
+          backgroundColor: notif.isRead ? theme.colors.surface : theme.colors.card,
+          borderColor: theme.colors.border,
         },
       ]}
     >
-      <View style={[styles.iconCircle, { backgroundColor: `${config.color}15` }]}>
-        <Ionicons name={config.icon as any} size={20} color={config.color} />
+      {/* Icon circle */}
+      <View style={[styles.iconCircle, { backgroundColor: `${config.color}12` }]}>
+        <Ionicons name={config.icon as any} size={18} color={config.color} />
       </View>
-      <View style={styles.notifText}>
-        <Text style={[styles.notifTitle, { color: theme.colors.text }]} numberOfLines={1}>
+
+      {/* Text content */}
+      <View style={styles.notifBody}>
+        <Text
+          style={[styles.notifTitle, { color: theme.colors.text, opacity: notif.isRead ? 0.75 : 1 }]}
+          numberOfLines={1}
+        >
           {notif.title}
         </Text>
-        <Text style={[styles.notifBody, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+        <Text
+          style={[styles.notifDesc, { color: theme.colors.textSecondary }]}
+          numberOfLines={2}
+        >
           {notif.body}
         </Text>
         <Text style={[styles.notifTime, { color: theme.colors.textTertiary }]}>
           {timeAgo(notif.createdAt)}
         </Text>
       </View>
+
+      {/* Unread dot — small terracotta */}
       {!notif.isRead && (
-        <View style={[styles.unreadDot, { backgroundColor: config.color }]} />
+        <View style={[styles.unreadDot, { backgroundColor: Colors.primary }]} />
       )}
     </TouchableOpacity>
   );
@@ -91,32 +110,44 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  const markAllRead = () =>
+    setNotifications(ns => ns.map(n => ({ ...n, isRead: true })));
+
+  const markOneRead = (id: string) =>
+    setNotifications(ns => ns.map(n => n.id === id ? { ...n, isRead: true } : n));
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Notifications</Text>
           {unreadCount > 0 && (
-            <Text style={[styles.unreadText, { color: Colors.primary }]}>
+            <Text style={[styles.unreadCount, { color: Colors.primary }]}>
               {unreadCount} unread
             </Text>
           )}
         </View>
-        <TouchableOpacity
-          onPress={() => setNotifications(ns => ns.map(n => ({ ...n, isRead: true })))}
-        >
-          <Text style={[styles.markAll, { color: Colors.primary }]}>Mark all read</Text>
-        </TouchableOpacity>
+        {unreadCount > 0 && (
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={[styles.markAll, { color: Colors.primary }]}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      <HandDrawnSeparator style={{ marginHorizontal: Spacing.xl }} />
 
       {notifications.length === 0 ? (
         <EmptyState
-          emoji="🔔"
-          title="You're all caught up!"
-          subtitle="No new notifications right now. We'll notify you when food is available or claimed."
+          title="You're all caught up."
+          subtitle="No new notifications right now. We'll let you know when food is available nearby."
         />
       ) : (
         <FlatList
@@ -132,7 +163,12 @@ export default function NotificationsScreen() {
               colors={[Colors.primary]}
             />
           }
-          renderItem={({ item }) => <NotificationItem notif={item} />}
+          renderItem={({ item }) => (
+            <NotificationItem
+              notif={item}
+              onMarkRead={() => markOneRead(item.id)}
+            />
+          )}
           ItemSeparatorComponent={() => (
             <View style={[styles.separator, { backgroundColor: theme.colors.divider }]} />
           )}
@@ -147,70 +183,80 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.base,
     gap: Spacing.sm,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: Radius.xs,
   },
   title: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.xl,
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize['2xl'],
+    letterSpacing: 0.2,
   },
-  unreadText: {
+  unreadCount: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
     marginTop: 2,
+    fontStyle: 'italic',
   },
   markAll: {
     fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
+    letterSpacing: 0.3,
   },
   list: {
     paddingBottom: Spacing['3xl'],
+  },
+  separator: {
+    height: 0.5,
   },
   notifItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.md,
-    padding: Spacing.base,
+    paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.xl,
-    borderLeftWidth: 3,
+    borderBottomWidth: 0,
   },
   iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  notifText: { flex: 1 },
-  notifTitle: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.base,
-    marginBottom: 3,
+    marginTop: 2,
   },
   notifBody: {
+    flex: 1,
+  },
+  notifTitle: {
+    fontFamily: FontFamily.outfitSemiBold,
+    fontSize: FontSize.sm + 1,
+    marginBottom: 3,
+  },
+  notifDesc: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.sm,
     lineHeight: FontSize.sm * 1.5,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   notifTime: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
+    fontStyle: 'italic',
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     marginTop: 6,
     flexShrink: 0,
   },
-  separator: { height: 0.5 },
 });

@@ -9,78 +9,97 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { StatusChip } from '../../components/ui/StatusChip';
-import { BotanicalSprig, HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
+import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
-import { Spacing, Radius, Shadow } from '../../constants/spacing';
+import { Spacing, Radius } from '../../constants/spacing';
 
 interface SettingRowProps {
-  icon: string;
+  iconName: string;
   label: string;
   value?: string;
   onPress?: () => void;
   isSwitch?: boolean;
   switchValue?: boolean;
   onSwitchChange?: (value: boolean) => void;
-  color?: string;
   danger?: boolean;
+  isLast?: boolean;
 }
 
-function SettingRow({ icon, label, value, onPress, isSwitch, switchValue, onSwitchChange, color, danger }: SettingRowProps) {
+function SettingRow({
+  iconName, label, value, onPress,
+  isSwitch, switchValue, onSwitchChange,
+  danger, isLast,
+}: SettingRowProps) {
   const { theme } = useTheme();
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
-      style={styles.settingRow}
-      disabled={!onPress && !isSwitch}
-      accessibilityRole={isSwitch ? 'switch' : 'button'}
-      accessibilityLabel={label}
-    >
-      <View style={[styles.settingIcon, { backgroundColor: `${color ?? Colors.primary}18` }]}>
+    <>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={onPress ? 0.75 : 1}
+        style={styles.settingRow}
+        disabled={!onPress && !isSwitch}
+        accessibilityRole={isSwitch ? 'switch' : 'button'}
+        accessibilityLabel={label}
+      >
         <Ionicons
-          name={icon as any}
-          size={18}
-          color={danger ? Colors.error : color ?? Colors.primary}
+          name={iconName as any}
+          size={17}
+          color={danger ? Colors.error : theme.colors.textSecondary}
+          style={styles.settingIcon}
         />
+        <Text style={[styles.settingLabel, { color: danger ? Colors.error : theme.colors.text }]}>
+          {label}
+        </Text>
+        <View style={styles.settingRight}>
+          {value && (
+            <Text style={[styles.settingValue, { color: theme.colors.textTertiary }]}>{value}</Text>
+          )}
+          {isSwitch && (
+            <Switch
+              value={switchValue}
+              onValueChange={onSwitchChange}
+              trackColor={{ false: Colors.border, true: Colors.primaryAlpha20 }}
+              thumbColor={switchValue ? Colors.primary : '#EEEAD8'}
+            />
+          )}
+          {!isSwitch && onPress && (
+            <Ionicons name="chevron-forward" size={14} color={theme.colors.textTertiary} />
+          )}
+        </View>
+      </TouchableOpacity>
+      {!isLast && <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />}
+    </>
+  );
+}
+
+interface SettingsGroupProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function SettingsGroup({ label, children }: SettingsGroupProps) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.settingsSection}>
+      <Text style={[styles.groupLabel, { color: theme.colors.textTertiary }]}>{label}</Text>
+      <View style={[styles.groupCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        {children}
       </View>
-      <Text style={[styles.settingLabel, { color: danger ? Colors.error : theme.colors.text }]}>
-        {label}
-      </Text>
-      <View style={styles.settingRight}>
-        {value && (
-          <Text style={[styles.settingValue, { color: theme.colors.textTertiary }]}>{value}</Text>
-        )}
-        {isSwitch && (
-          <Switch
-            value={switchValue}
-            onValueChange={onSwitchChange}
-            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-            thumbColor={switchValue ? Colors.primary : '#f4f3f4'}
-          />
-        )}
-        {!isSwitch && onPress && (
-          <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
-        )}
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
-  const { theme, isDark, themeMode, setThemeMode } = useTheme();
+  const { theme, isDark, setThemeMode } = useTheme();
   const isNGO = user?.role === 'ngo';
 
   const handleLogout = () => {
@@ -100,45 +119,59 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Profile Header */}
-        <View style={[styles.profileHeaderCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1 }]}>
-          <View style={styles.avatarContainer}>
+
+        {/* ── Profile Header Card ── */}
+        <View style={[styles.profileCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          {/* Avatar + Edit */}
+          <View style={styles.avatarWrap}>
             <Avatar name={user?.name ?? 'U'} size={72} showVerified={user?.isVerified} />
             <TouchableOpacity
               onPress={() => router.push('/profile/edit')}
-              style={styles.editBtn}
+              style={[styles.editBtn, { backgroundColor: Colors.primary }]}
             >
-              <Ionicons name="pencil" size={12} color="#fff" />
+              <Ionicons name="pencil" size={11} color={Colors.textInverse} />
             </TouchableOpacity>
           </View>
-          
-          <Text style={[styles.profileNameText, { color: theme.colors.text }]}>{user?.name}</Text>
-          {isNGO && user?.organizationName && (
-            <Text style={[styles.profileOrgText, { color: theme.colors.textSecondary }]}>{user.organizationName}</Text>
+
+          {/* Name */}
+          <Text style={[styles.profileName, { color: theme.colors.text }]}>{user?.name}</Text>
+          {isNGO && (user as any).organizationName && (
+            <Text style={[styles.profileOrg, { color: theme.colors.textSecondary }]}>
+              {(user as any).organizationName}
+            </Text>
           )}
 
+          {/* Role + Verification badges */}
           <View style={styles.badgesRow}>
-            <StatusChip status={user?.verificationStatus ?? 'pending'} label={user?.verificationStatus ?? 'Pending'} size="md" />
-            <View style={[styles.roleBadge, { borderColor: theme.colors.border, borderWidth: 1 }]}>
-              <Text style={[styles.roleBadgeText, { color: theme.colors.textSecondary }]}>
-                {isNGO ? '🤝 NGO Partner' : user?.role === 'household' ? '🏠 Household' : '🏪 Local Donor'}
+            <View style={[styles.rolePill, { borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}>
+              <Text style={[styles.rolePillText, { color: theme.colors.textSecondary }]}>
+                {isNGO ? 'NGO Partner' : user?.role === 'household' ? 'Household' : 'Local Donor'}
               </Text>
             </View>
+            {user?.isVerified && (
+              <View style={[styles.verifiedPill, { backgroundColor: Colors.primaryAlpha08 }]}>
+                <Ionicons name="shield-checkmark" size={10} color={Colors.primary} />
+                <Text style={[styles.verifiedPillText, { color: Colors.primary }]}>Verified</Text>
+              </View>
+            )}
           </View>
 
-          <Text style={[styles.profileLocationText, { color: theme.colors.textSecondary }]}>
-            <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
-            {' '}{user?.location?.city ?? 'New Delhi'}
-          </Text>
+          {/* Location */}
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={11} color={theme.colors.textTertiary} />
+            <Text style={[styles.locationText, { color: theme.colors.textTertiary }]}>
+              {user?.location?.city ?? 'New Delhi'}
+            </Text>
+          </View>
         </View>
 
-        {/* Verification Banner (if not verified) */}
+        {/* ── Verification Banner ── */}
         {user?.verificationStatus !== 'verified' && (
           <TouchableOpacity
             onPress={() => router.push('/profile/verification')}
-            style={[styles.verifyBanner, { backgroundColor: Colors.yellowAlpha20, borderColor: Colors.yellow, borderWidth: 1 }]}
+            style={[styles.verifyBanner, { backgroundColor: Colors.yellowAlpha20, borderColor: Colors.yellow }]}
           >
-            <Ionicons name="shield-outline" size={20} color={Colors.yellow} />
+            <Ionicons name="shield-outline" size={18} color={Colors.yellow} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.verifyTitle, { color: theme.colors.text }]}>
                 Complete Verification
@@ -147,157 +180,80 @@ export default function ProfileScreen() {
                 Get verified to build trust with partners
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+            <Ionicons name="chevron-forward" size={14} color={theme.colors.textTertiary} />
           </TouchableOpacity>
         )}
 
-        {/* Quick Stats & Callout */}
+        {/* ── Impact Stats ── */}
         <View style={styles.statsSection}>
-          <Text style={styles.statsHeaderLabel}>IMPACT SUMMARY</Text>
-          <View style={styles.statsRow}>
-            {isNGO ? (
-              <>
+          <Text style={styles.statsLabel}>IMPACT SUMMARY</Text>
+          <View style={[styles.statsRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            {(isNGO ? [
+              { value: '183', label: 'RESCUES' },
+              { value: '8.7K', label: 'MEALS' },
+              { value: '4.9', label: 'RATING' },
+            ] : [
+              { value: '47', label: 'LISTINGS' },
+              { value: '1.2K', label: 'MEALS' },
+              { value: '4.8', label: 'RATING' },
+            ]).map((stat, i, arr) => (
+              <React.Fragment key={stat.label}>
+                {i > 0 && <View style={[styles.statsDivider, { backgroundColor: theme.colors.border }]} />}
                 <View style={styles.statCell}>
-                  <Text style={styles.statValue}>183</Text>
-                  <Text style={styles.statLabel}>RESCUES</Text>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>{stat.value}</Text>
+                  <Text style={[styles.statLabel, { color: theme.colors.textTertiary }]}>{stat.label}</Text>
                 </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>8.7K</Text>
-                  <Text style={styles.statLabel}>MEALS</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>4.9</Text>
-                  <Text style={styles.statLabel}>RATING</Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>47</Text>
-                  <Text style={styles.statLabel}>LISTINGS</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>1.2K</Text>
-                  <Text style={styles.statLabel}>MEALS</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCell}>
-                  <Text style={styles.statValue}>4.8</Text>
-                  <Text style={styles.statLabel}>RATING</Text>
-                </View>
-              </>
-            )}
+              </React.Fragment>
+            ))}
           </View>
 
-          <View style={styles.typographicCallout}>
-            <BotanicalSprig size={24} />
-            <Text style={styles.calloutText}>
-              {isNGO 
-                ? `"You helped rescue 8,750 meals for the community this season."`
-                : `"You helped keep 1,240 meals on the table this season."`
+          {/* Editorial callout */}
+          <View style={[styles.callout, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[styles.calloutText, { color: theme.colors.textSecondary }]}>
+              {isNGO
+                ? '"You helped rescue 8,750 meals for the community this season."'
+                : '"You helped keep 1,240 meals on the table this season."'
               }
             </Text>
           </View>
         </View>
 
-        {/* Settings Groups */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.textTertiary }]}>ACCOUNT</Text>
-          <Card padding={0} variant="outlined">
-            <SettingRow
-              icon="person-outline"
-              label="Edit Profile"
-              onPress={() => router.push('/profile/edit')}
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="shield-checkmark-outline"
-              label="Verification"
-              value={user?.verificationStatus ?? 'Pending'}
-              onPress={() => router.push('/profile/verification')}
-              color={Colors.accent}
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="location-outline"
-              label="Location"
-              value={user?.location?.city ?? 'Not set'}
-              onPress={() => {}}
-            />
-          </Card>
+        {/* ── Settings ── */}
+        <SettingsGroup label="ACCOUNT">
+          <SettingRow iconName="person-outline" label="Edit Profile" onPress={() => router.push('/profile/edit')} />
+          <SettingRow iconName="shield-checkmark-outline" label="Verification" value={user?.verificationStatus ?? 'Pending'} onPress={() => router.push('/profile/verification')} />
+          <SettingRow iconName="location-outline" label="Location" value={user?.location?.city ?? 'Not set'} onPress={() => {}} isLast />
+        </SettingsGroup>
+
+        <SettingsGroup label="PREFERENCES">
+          <SettingRow
+            iconName="moon-outline"
+            label="Dark Mode"
+            isSwitch
+            switchValue={isDark}
+            onSwitchChange={val => setThemeMode(val ? 'dark' : 'light')}
+          />
+          <SettingRow iconName="notifications-outline" label="Notifications" onPress={() => router.push('/notifications')} />
+          <SettingRow iconName="settings-outline" label="Settings" onPress={() => router.push('/profile/settings')} isLast />
+        </SettingsGroup>
+
+        <SettingsGroup label="SUPPORT">
+          <SettingRow iconName="help-circle-outline" label="Help & Support" onPress={() => {}} />
+          <SettingRow iconName="document-text-outline" label="Privacy Policy" onPress={() => {}} />
+          <SettingRow iconName="star-outline" label="Rate ShareBite" onPress={() => {}} isLast />
+        </SettingsGroup>
+
+        <View style={styles.settingsSection}>
+          <View style={[styles.groupCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <SettingRow iconName="log-out-outline" label="Log Out" onPress={handleLogout} danger isLast />
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.textTertiary }]}>PREFERENCES</Text>
-          <Card padding={0} variant="outlined">
-            <SettingRow
-              icon="moon-outline"
-              label="Dark Mode"
-              isSwitch
-              switchValue={isDark}
-              onSwitchChange={val => setThemeMode(val ? 'dark' : 'light')}
-              color="#6B5CE7"
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="notifications-outline"
-              label="Notifications"
-              onPress={() => router.push('/notifications')}
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="settings-outline"
-              label="Settings"
-              onPress={() => router.push('/profile/settings')}
-            />
-          </Card>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.textTertiary }]}>SUPPORT</Text>
-          <Card padding={0} variant="outlined">
-            <SettingRow
-              icon="help-circle-outline"
-              label="Help & Support"
-              onPress={() => {}}
-              color={Colors.accent}
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="document-text-outline"
-              label="Privacy Policy"
-              onPress={() => {}}
-            />
-            <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />
-            <SettingRow
-              icon="star-outline"
-              label="Rate ShareBite"
-              onPress={() => {}}
-              color={Colors.yellow}
-            />
-          </Card>
-        </View>
-
-        <View style={styles.section}>
-          <Card padding={0} variant="outlined">
-            <SettingRow
-              icon="log-out-outline"
-              label="Log Out"
-              onPress={handleLogout}
-              danger
-            />
-          </Card>
-        </View>
-
-        {/* App version */}
         <Text style={[styles.version, { color: theme.colors.textTertiary }]}>
-          ShareBite v1.0.0 • Share Food. Share Hope.
+          ShareBite v1.0.0 · Share Food. Share Hope.
         </Text>
 
-        <View style={{ height: Spacing['3xl'] }} />
+        <View style={{ height: Spacing['4xl'] }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -305,18 +261,18 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { paddingBottom: 30 },
-  
-  // Editorial Profile Header
-  profileHeaderCard: {
+  scroll: { paddingBottom: 20 },
+
+  // Profile card
+  profileCard: {
     marginHorizontal: Spacing.xl,
     marginTop: Spacing.md,
     padding: Spacing.xl,
     alignItems: 'center',
     borderRadius: Radius.sm,
-    backgroundColor: '#FAF8F1',
+    borderWidth: 1,
   },
-  avatarContainer: {
+  avatarWrap: {
     position: 'relative',
     marginBottom: Spacing.md,
   },
@@ -327,19 +283,19 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FAF8F1',
+    borderColor: Colors.surface,
   },
-  profileNameText: {
+  profileName: {
     fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize['2xl'] + 2,
     marginBottom: 4,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
-  profileOrgText: {
+  profileOrg: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.sm,
     marginBottom: Spacing.sm,
@@ -348,27 +304,46 @@ const styles = StyleSheet.create({
   badgesRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginBottom: Spacing.base,
+    marginBottom: Spacing.sm,
     alignItems: 'center',
   },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  rolePill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: Radius.xs,
-    backgroundColor: '#F4F0E6',
+    borderWidth: 1,
   },
-  roleBadgeText: {
-    fontFamily: FontFamily.outfitBold,
+  rolePillText: {
+    fontFamily: FontFamily.outfitSemiBold,
     fontSize: 9,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  profileLocationText: {
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.xs,
+  },
+  verifiedPillText: {
+    fontFamily: FontFamily.outfitSemiBold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  locationText: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
   },
-  
-  // Verification Banner
+
+  // Verify banner
   verifyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -377,6 +352,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     padding: Spacing.base,
     borderRadius: Radius.sm,
+    borderWidth: 1,
   },
   verifyTitle: {
     fontFamily: FontFamily.outfitSemiBold,
@@ -388,24 +364,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Stats Section
+  // Stats
   statsSection: {
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.xl,
   },
-  statsHeaderLabel: {
+  statsLabel: {
     fontSize: 9,
     fontFamily: FontFamily.outfitBold,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     color: Colors.primary,
     marginBottom: Spacing.sm,
   },
   statsRow: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.xs,
-    backgroundColor: '#FAF8F1',
+    borderRadius: Radius.sm,
     paddingVertical: Spacing.md,
     alignItems: 'center',
   },
@@ -416,64 +390,57 @@ const styles = StyleSheet.create({
   statValue: {
     fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize.xl + 2,
-    color: Colors.textPrimary,
+    letterSpacing: -0.3,
   },
   statLabel: {
     fontFamily: FontFamily.outfitBold,
     fontSize: 8,
     letterSpacing: 0.8,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
-  statDivider: {
+  statsDivider: {
     width: 1,
     height: 24,
-    backgroundColor: Colors.border,
   },
-  typographicCallout: {
-    marginTop: Spacing.md,
+  callout: {
+    marginTop: Spacing.sm,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: Radius.sm,
-    backgroundColor: '#FAF8F1',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
   },
   calloutText: {
-    flex: 1,
     fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize.xs + 1,
     fontStyle: 'italic',
-    color: Colors.textSecondary,
     lineHeight: 18,
+    textAlign: 'center',
   },
 
-  // Settings Layout
-  section: {
+  // Settings
+  settingsSection: {
     paddingHorizontal: Spacing.xl,
     marginTop: Spacing.xl,
   },
-  sectionLabel: {
-    fontFamily: FontFamily.outfitBold,
+  groupLabel: {
     fontSize: 9,
+    fontFamily: FontFamily.outfitBold,
     letterSpacing: 1,
     marginBottom: Spacing.sm,
+  },
+  groupCard: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: Spacing.base,
     gap: Spacing.md,
   },
   settingIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 20,
   },
   settingLabel: {
     flex: 1,
@@ -490,11 +457,15 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     textTransform: 'capitalize',
   },
-  sep: { height: 0.5, marginHorizontal: Spacing.base },
+  sep: {
+    height: 0.5,
+    marginHorizontal: Spacing.base,
+  },
+
   version: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
     textAlign: 'center',
-    marginTop: Spacing.sm,
+    marginTop: Spacing.lg,
   },
 });

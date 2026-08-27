@@ -1,78 +1,89 @@
 // ShareBite Design System — Color Tokens
+// Reference: Premium editorial food-rescue community platform
 
 export const Colors = {
-  // Brand Colors
-  primary: '#B96F52',       // Terracotta
-  primaryLight: '#C6866C',  // Light Terracotta
-  primaryDark: '#9C5B41',   // Deep Terracotta
-  accent: '#626A3A',        // Olive Green
-  accentLight: '#79824F',   // Light Olive
-  accentDark: '#4C522B',    // Deep Olive
-  yellow: '#D5A467',        // Muted Warm Yellow
-  yellowLight: '#E2BD8A',   // Light Warm Yellow
+  // ── Brand / Accent ────────────────────────────────────────────────
+  primary: '#A9614D',         // Terracotta / Burnt Clay — primary accent
+  primaryLight: '#BB7A68',    // Lighter terracotta
+  primaryDark: '#8C4E3D',     // Deeper terracotta
 
-  // Neutral Backgrounds (Tactile Light Mode)
-  background: '#F4F0E6',    // Warm Cream Paper
-  surface: '#FAF8F1',       // Warm Ivory
-  surfaceVariant: '#ECE8DD',// Muted Tactile Beige
-  cream: '#FAF8F1',
+  accent: '#68734D',          // Muted Olive — secondary accent
+  accentLight: '#7E8961',     // Lighter olive
+  accentDark: '#52593B',      // Deeper olive
 
-  // Neutral Backgrounds (tactile Dark Mode)
-  backgroundDark: '#1C1C1A',
-  surfaceDark: '#292925',
-  surfaceVariantDark: '#383832',
-  cardDark: '#292925',
+  yellow: '#C4974A',          // Muted warm amber (subtle, not bright)
+  yellowLight: '#D4AF77',
 
-  // Text
-  textPrimary: '#292925',    // Charcoal
-  textSecondary: '#54544D',  // Muted Charcoal
-  textTertiary: '#8A8A80',   // Warm Muted Gray
-  textInverse: '#FAF8F1',    // Warm Ivory
-  textPrimaryDark: '#F4F0E6',
-  textSecondaryDark: '#D8D0BE',
-  textTertiaryDark: '#8A8A80',
+  // ── Neutral Backgrounds ───────────────────────────────────────────
+  background: '#F4F0E5',      // Warm Ivory — primary background
+  surface: '#FBF9F3',         // Soft Off-White — cards / elevated containers
+  surfaceVariant: '#ECE8DC',  // Subtle beige — secondary surfaces
 
-  // Status Colors
-  success: '#626A3A',       // Olive Green
-  warning: '#D5A467',       // Muted Yellow
-  error: '#A24836',         // Rust/Deep Terracotta Red
-  errorLight: '#F3E5E2',
-  info: '#4F6379',          // Slate Gray
+  // ── Dark Mode Backgrounds ─────────────────────────────────────────
+  backgroundDark: '#24231F',
+  surfaceDark: '#302E29',
+  surfaceVariantDark: '#3D3A33',
+  cardDark: '#302E29',
 
-  // Donation Status Colors
-  statusAvailable: '#626A3A',
-  statusClaimed: '#4F6379',
-  statusPickup: '#B96F52',
-  statusCompleted: '#54544D',
-  statusExpired: '#A24836',
-  statusUrgent: '#A24836',
-  statusFresh: '#626A3A',
-  statusSoon: '#B96F52',
+  // ── Text ─────────────────────────────────────────────────────────
+  textPrimary: '#292722',     // Deep Charcoal — NOT pure black
+  textSecondary: '#6F6A61',   // Warm Gray
+  textTertiary: '#9C9689',    // Muted warm gray
+  textInverse: '#FBF9F3',     // Ivory — text on dark/colored surfaces
 
-  // UI Elements
-  border: '#D8D0BE',        // Muted Beige Border
-  borderDark: '#3D3D37',
-  divider: '#E4DFD3',       // Thin organic rule color
-  dividerDark: '#33332E',
-  shadow: 'rgba(41, 41, 37, 0.04)',
-  shadowDark: 'rgba(0, 0, 0, 0.2)',
-  overlay: 'rgba(41, 41, 37, 0.4)',
+  textPrimaryDark: '#F4F0E5',
+  textSecondaryDark: '#B8B0A1',
+  textTertiaryDark: '#7A7368',
 
-  // Gradients (as arrays for LinearGradient)
-  gradientPrimary: ['#B96F52', '#C6866C'] as const,
-  gradientAccent: ['#626A3A', '#79824F'] as const,
-  gradientHero: ['#FAF8F1', '#F4F0E6'] as const, // Neutral editorial hero
-  gradientCard: ['#FAF8F1', '#FAF8F1'] as const,
-  gradientDark: ['#1C1C1A', '#292925'] as const,
+  // ── Status Colors ────────────────────────────────────────────────
+  success: '#68734D',         // Olive — positive / completed
+  warning: '#C4974A',         // Amber — warning
+  error: '#A65343',           // Muted Rust — warnings/urgent (NOT bright red)
+  errorLight: '#F0E6E3',
+  info: '#556B7A',            // Slate — informational
 
-  // Transparent
+  // ── Donation Status ───────────────────────────────────────────────
+  statusAvailable: '#68734D',     // Olive
+  statusClaimed: '#556B7A',       // Slate
+  statusPickup: '#A9614D',        // Terracotta
+  statusCompleted: '#6F6A61',     // Warm gray
+  statusExpired: '#A65343',       // Rust
+  statusUrgent: '#A65343',        // Rust
+  statusFresh: '#68734D',         // Olive
+  statusSoon: '#A9614D',          // Terracotta
+
+  // ── UI Elements ───────────────────────────────────────────────────
+  border: '#D8D1C2',          // Warm Beige — subtle, elegant borders
+  borderDark: '#3D3A33',
+  divider: '#E4DDD0',         // Thin warm divider
+  dividerDark: '#38352E',
+
+  // Shadows — warm neutral, very subtle
+  shadow: 'rgba(41, 39, 34, 0.06)',
+  shadowMedium: 'rgba(41, 39, 34, 0.10)',
+  shadowDark: 'rgba(0, 0, 0, 0.22)',
+  overlay: 'rgba(41, 39, 34, 0.42)',
+
+  // ── Gradient Arrays (for LinearGradient) ─────────────────────────
+  gradientPrimary: ['#A9614D', '#BB7A68'] as const,
+  gradientAccent: ['#68734D', '#7E8961'] as const,
+  gradientHero: ['#FBF9F3', '#F4F0E5'] as const,     // Editorial neutral hero
+  gradientCard: ['#FBF9F3', '#FBF9F3'] as const,
+  gradientDark: ['#24231F', '#302E29'] as const,
+
+  // ── Transparent Tints ─────────────────────────────────────────────
   transparent: 'transparent',
-  primaryAlpha10: 'rgba(185, 111, 82, 0.10)',
-  primaryAlpha20: 'rgba(185, 111, 82, 0.20)',
-  accentAlpha10: 'rgba(98, 106, 58, 0.10)',
-  accentAlpha20: 'rgba(98, 106, 58, 0.20)',
-  yellowAlpha20: 'rgba(213, 164, 103, 0.20)',
+  primaryAlpha08: 'rgba(169, 97, 77, 0.08)',
+  primaryAlpha12: 'rgba(169, 97, 77, 0.12)',
+  primaryAlpha20: 'rgba(169, 97, 77, 0.20)',
+  // Keep legacy aliases for backward-compat
+  primaryAlpha10: 'rgba(169, 97, 77, 0.10)',
+  accentAlpha10: 'rgba(104, 115, 77, 0.10)',
+  accentAlpha20: 'rgba(104, 115, 77, 0.20)',
+  yellowAlpha20: 'rgba(196, 151, 74, 0.20)',
+
+  // ── Cream / Off-White aliases ─────────────────────────────────────
+  cream: '#FBF9F3',
 };
 
 export type ColorKey = keyof typeof Colors;
-

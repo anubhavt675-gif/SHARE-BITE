@@ -7,7 +7,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,22 +25,12 @@ interface DonationCardProps {
   compact?: boolean;
 }
 
-function formatTimeLeft(expiresAt: string): string {
-  const diff = new Date(expiresAt).getTime() - Date.now();
-  if (diff <= 0) return 'Expired';
-  const hours = Math.floor(diff / 3600000);
-  const minutes = Math.floor((diff % 3600000) / 60000);
-  if (hours > 0) return `${hours}h ${minutes}m left`;
-  return `${minutes}m left`;
-}
-
-function timeAgo(createdAt: string): string {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
+function formatPickupTime(expiresAt: string): string {
+  return new Date(expiresAt).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 export function DonationCard({
@@ -49,40 +38,29 @@ export function DonationCard({
   onPress,
   onClaim,
   showDistance = true,
-  compact = false,
 }: DonationCardProps) {
   const { theme, isDark } = useTheme();
   const categoryInfo = FOOD_CATEGORIES.find(c => c.key === donation.food.category);
 
   const isUrgent = donation.freshnessStatus === 'URGENT';
-  const isExpired = donation.freshnessStatus === 'EXPIRED' || donation.status === 'EXPIRED';
-
-  const isAltLayout = donation.id ? (donation.id.charCodeAt(donation.id.length - 1) % 2 === 0) : false;
+  const isExpired =
+    donation.freshnessStatus === 'EXPIRED' || donation.status === 'EXPIRED';
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.9}
+      activeOpacity={0.88}
       style={[
         styles.card,
         {
           backgroundColor: theme.colors.card,
-          borderColor: theme.colors.border,
-          borderWidth: 1,
-          borderRadius: Radius.sm,
-          flexDirection: isAltLayout ? 'column' : 'row',
+          borderColor: isUrgent ? Colors.error : theme.colors.border,
         },
-        isUrgent && styles.urgentBorder,
+        isDark ? Shadow.dark : Shadow.sm,
       ]}
     >
       {/* Food Image */}
-      <View style={[
-        styles.imageContainer,
-        {
-          width: isAltLayout ? '100%' : 110,
-          height: isAltLayout ? 140 : 120,
-        }
-      ]}>
+      <View style={styles.imageContainer}>
         {donation.imageUrl ? (
           <Image
             source={{ uri: donation.imageUrl }}
@@ -90,72 +68,133 @@ export function DonationCard({
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.imagePlaceholder, { backgroundColor: `${categoryInfo?.color}12` }]}>
-            <Text style={styles.emoji}>{categoryInfo?.emoji ?? '🍛'}</Text>
+          <View
+            style={[
+              styles.imagePlaceholder,
+              { backgroundColor: Colors.surfaceVariant },
+            ]}
+          >
+            {/* Category initial letter instead of emoji for editorial feel */}
+            <Text style={styles.placeholderLetter}>
+              {categoryInfo?.label?.charAt(0).toUpperCase() ?? 'F'}
+            </Text>
           </View>
         )}
-        {/* Veg/Non-veg indicator */}
+
+        {/* Veg/Non-veg FSSAI-style indicator */}
         <View
           style={[
             styles.vegBadge,
-            { borderColor: donation.food.isVegetarian ? Colors.success : Colors.error },
+            {
+              borderColor: donation.food.isVegetarian
+                ? Colors.success
+                : Colors.error,
+              backgroundColor: theme.colors.card,
+            },
           ]}
         >
           <View
             style={[
               styles.vegDot,
-              { backgroundColor: donation.food.isVegetarian ? Colors.success : Colors.error },
+              {
+                backgroundColor: donation.food.isVegetarian
+                  ? Colors.success
+                  : Colors.error,
+              },
             ]}
           />
         </View>
+
+        {/* Urgent ribbon */}
+        {isUrgent && (
+          <View style={styles.urgentTag}>
+            <Text style={styles.urgentTagText}>URGENT</Text>
+          </View>
+        )}
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        <View style={styles.headerInfo}>
-          <Text style={[styles.categoryText, { color: Colors.primary }]}>
-            {categoryInfo?.label ? categoryInfo.label.toUpperCase() : 'FOOD'}
+        {/* Category + Food Name */}
+        <View style={styles.nameBlock}>
+          <Text style={styles.categoryText}>
+            {categoryInfo?.label?.toUpperCase() ?? 'FOOD'}
           </Text>
-          <View style={styles.headerRow}>
-            <Text
-              style={[styles.foodName, { color: theme.colors.text }]}
-              numberOfLines={2}
-            >
-              {donation.food.name}
-            </Text>
-          </View>
+          <Text
+            style={[styles.foodName, { color: theme.colors.text }]}
+            numberOfLines={2}
+          >
+            {donation.food.name}
+          </Text>
+          <Text
+            style={[styles.orgName, { color: theme.colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {donation.donor.organizationName ?? donation.donor.name}
+          </Text>
         </View>
 
-        <Text style={[styles.orgName, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-          {donation.donor.organizationName ?? donation.donor.name}
-        </Text>
-
-        <View style={styles.metaRow}>
-          <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-            {donation.servings} portions · {showDistance && donation.distanceKm ? `${donation.distanceKm} km` : 'Local'}
-          </Text>
+        {/* Meta information */}
+        <View style={styles.metaBlock}>
+          <View style={styles.metaRow}>
+            <Ionicons
+              name="people-outline"
+              size={10}
+              color={theme.colors.textTertiary}
+            />
+            <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>
+              {donation.servings} servings
+            </Text>
+            {showDistance && donation.distanceKm && (
+              <>
+                <Text style={[styles.metaDot, { color: theme.colors.textTertiary }]}>·</Text>
+                <Ionicons
+                  name="location-outline"
+                  size={10}
+                  color={theme.colors.textTertiary}
+                />
+                <Text style={[styles.metaText, { color: theme.colors.textTertiary }]}>
+                  {donation.distanceKm} km
+                </Text>
+              </>
+            )}
+          </View>
           <Text
             style={[
               styles.timeText,
-              { color: isUrgent ? Colors.error : theme.colors.textSecondary },
+              { color: isUrgent ? Colors.error : theme.colors.textTertiary },
             ]}
           >
-            Until {new Date(donation.expiresAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
+            Until {formatPickupTime(donation.expiresAt)}
           </Text>
         </View>
 
+        {/* Footer — Status + CTA */}
         <View style={styles.footer}>
-          <StatusChip status={donation.freshnessStatus} label={donation.freshnessStatus.replace('_', ' ')} />
+          <StatusChip
+            status={donation.freshnessStatus}
+            label={
+              donation.freshnessStatus === 'FRESH'
+                ? 'Available'
+                : donation.freshnessStatus === 'PICKUP_SOON'
+                ? 'Pickup Soon'
+                : donation.freshnessStatus
+            }
+          />
           {onClaim && donation.status === 'AVAILABLE' && !isExpired ? (
             <TouchableOpacity
               onPress={onClaim}
-              style={styles.claimBtn}
-              activeOpacity={0.85}
+              style={[styles.claimBtn, { borderColor: Colors.primary }]}
+              activeOpacity={0.82}
             >
-              <Text style={styles.claimText}>[ RESCUE ]</Text>
+              <Text style={styles.claimText}>RESCUE</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={[styles.detailsLink, { color: Colors.primary }]}>VIEW DETAILS →</Text>
+            <TouchableOpacity onPress={onPress} style={styles.viewBtn}>
+              <Text style={[styles.viewText, { color: Colors.primary }]}>
+                VIEW →
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -165,38 +204,41 @@ export function DonationCard({
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     marginBottom: Spacing.md,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
     overflow: 'hidden',
   },
-  urgentBorder: {
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.error,
-  },
   imageContainer: {
+    width: 100,
     position: 'relative',
   },
   image: {
-    width: '100%',
+    width: 100,
     height: '100%',
   },
   imagePlaceholder: {
-    width: '100%',
+    width: 100,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 120,
   },
-  emoji: {
-    fontSize: 36,
+  placeholderLetter: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: 28,
+    color: Colors.textTertiary,
   },
   vegBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    width: 12,
-    height: 12,
+    width: 13,
+    height: 13,
     borderRadius: 2,
-    borderWidth: 1,
-    backgroundColor: '#FAF8F1',
+    borderWidth: 1.2,
+    backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -205,44 +247,63 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  urgentTag: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.error,
+    paddingVertical: 3,
+    alignItems: 'center',
+  },
+  urgentTagText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontFamily: FontFamily.outfitBold,
+    letterSpacing: 1,
+  },
   content: {
     flex: 1,
     padding: Spacing.md,
     justifyContent: 'space-between',
   },
-  headerInfo: {
-    marginBottom: 4,
+  nameBlock: {
+    marginBottom: Spacing.xs,
   },
   categoryText: {
     fontSize: 9,
     fontFamily: FontFamily.outfitBold,
     letterSpacing: 1,
-    marginBottom: 2,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    color: Colors.primary,
+    marginBottom: 3,
   },
   foodName: {
     fontFamily: FontFamily.serifDisplay,
-    fontSize: FontSize.lg - 1,
-    lineHeight: FontSize.lg * 1.1,
-    flex: 1,
+    fontSize: FontSize.base,
+    lineHeight: FontSize.base * 1.25,
+    marginBottom: 3,
   },
   orgName: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    color: '#54544D',
-    marginBottom: 6,
+    fontSize: FontSize.xs,
+    marginBottom: 2,
+  },
+  metaBlock: {
+    gap: 3,
+    marginBottom: Spacing.sm,
   },
   metaRow: {
-    marginBottom: Spacing.sm,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   metaText: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
+  },
+  metaDot: {
+    fontSize: FontSize.xs,
+    marginHorizontal: 1,
   },
   timeText: {
     fontFamily: FontFamily.interRegular,
@@ -252,19 +313,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.xs,
   },
   claimBtn: {
+    borderWidth: 1,
+    borderRadius: Radius.xs,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    paddingHorizontal: 2,
   },
   claimText: {
     color: Colors.primary,
     fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.sm - 1,
-    letterSpacing: 0.5,
+    fontSize: 9,
+    letterSpacing: 0.8,
   },
-  detailsLink: {
+  viewBtn: {
+    paddingVertical: 4,
+  },
+  viewText: {
     fontSize: 9,
     fontFamily: FontFamily.outfitBold,
     letterSpacing: 0.5,

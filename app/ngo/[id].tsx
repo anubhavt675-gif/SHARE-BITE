@@ -1,4 +1,4 @@
-// ShareBite — NGO Donation Detail + Claim Screen [id].tsx
+// ShareBite — NGO Donation Detail + Claim Screen
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,13 +15,13 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { StatusChip } from '../../components/ui/StatusChip';
+import { HandDrawnSeparator, BotanicalSprig } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
 import { Donation } from '../../types';
 import { FOOD_CATEGORIES } from '../../services/mock-data';
@@ -48,7 +48,7 @@ export default function NGODonationDetailScreen() {
   const [claiming, setClaiming] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
-  const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
     DonationsService.getDonationById(id ?? '').then(d => {
@@ -87,10 +87,9 @@ export default function NGODonationDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.errorWrap}>
-          <Text style={{ fontSize: 48 }}>😔</Text>
-          <Text style={[styles.errorText, { color: theme.colors.text }]}>Donation not found</Text>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: Colors.primary, fontFamily: FontFamily.outfitSemiBold }}>Go Back</Text>
+          <Text style={[styles.errorTitle, { color: theme.colors.text }]}>Not found</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.errorLink}>
+            <Text style={{ color: Colors.primary, fontFamily: FontFamily.outfitSemiBold }}>← Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -103,37 +102,31 @@ export default function NGODonationDetailScreen() {
   const hoursLeft = Math.floor(minutesLeft / 60);
   const canClaim = donation.status === 'AVAILABLE' && !claimSuccess;
 
+  // ── Claim success state ───────────────────────────────────────────
   if (claimSuccess) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.successWrap}>
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <LinearGradient colors={Colors.gradientPrimary} style={styles.successCircle}>
-              <Text style={{ fontSize: 52 }}>🎉</Text>
-            </LinearGradient>
+          <Animated.View style={[styles.successCircle, { transform: [{ scale: scaleAnim }], backgroundColor: Colors.primaryAlpha12, borderColor: Colors.primary }]}>
+            <BotanicalSprig size={40} color={Colors.primary} />
           </Animated.View>
-          <Text style={[styles.successTitle, { color: theme.colors.text }]}>Donation Secured!</Text>
+          <Text style={[styles.successTitle, { color: theme.colors.text }]}>Donation Secured</Text>
           <Text style={[styles.successSub, { color: theme.colors.textSecondary }]}>
             You've claimed {donation.food.name}. Coordinate pickup with the donor now.
           </Text>
-          <View style={[styles.claimedSummary, { backgroundColor: Colors.primaryAlpha10 }]}>
-            <Text style={[styles.claimedText, { color: Colors.primary }]}>
-              🍽️ {donation.servings} meals · 📍 {donation.distanceKm ?? '?'} km away
-            </Text>
+          <View style={[styles.claimedSummary, { backgroundColor: Colors.primaryAlpha08, borderColor: Colors.primary }]}>
+            <View style={styles.claimedRow}>
+              <Ionicons name="people-outline" size={13} color={Colors.primary} />
+              <Text style={[styles.claimedItem, { color: Colors.primary }]}>{donation.servings} meals</Text>
+            </View>
+            <View style={styles.claimedRow}>
+              <Ionicons name="location-outline" size={13} color={Colors.primary} />
+              <Text style={[styles.claimedItem, { color: Colors.primary }]}>{donation.distanceKm ?? '?'} km away</Text>
+            </View>
           </View>
           <View style={styles.successBtns}>
-            <Button
-              label="Track Pickup"
-              onPress={() => router.replace('/ngo/pickup-tracking')}
-              variant="primary"
-              size="xl"
-            />
-            <Button
-              label="Find More Donations"
-              onPress={() => router.replace('/(tabs)/discover')}
-              variant="outline"
-              size="lg"
-            />
+            <Button label="Track Pickup" onPress={() => router.replace('/ngo/pickup-tracking')} variant="primary" size="lg" />
+            <Button label="Find More Donations" onPress={() => router.replace('/(tabs)/discover')} variant="outline" size="md" />
           </View>
         </View>
       </SafeAreaView>
@@ -143,35 +136,33 @@ export default function NGODonationDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Image */}
+        {/* ── Hero Image ── */}
         <View style={styles.imageWrap}>
           {donation.imageUrl ? (
             <Image source={{ uri: donation.imageUrl }} style={styles.image} resizeMode="cover" />
           ) : (
-            <LinearGradient
-              colors={isDark ? ['#292925', '#1C1C1A'] : [Colors.background, Colors.surfaceVariant]}
-              style={styles.imagePlaceholder}
-            >
-              <Text style={{ fontSize: 80 }}>{cat?.emoji ?? '🍛'}</Text>
-            </LinearGradient>
+            <View style={[styles.imagePlaceholder, { backgroundColor: Colors.surfaceVariant }]}>
+              <Text style={[styles.placeholderLetter, { color: Colors.textTertiary }]}>
+                {cat?.label?.charAt(0).toUpperCase() ?? 'F'}
+              </Text>
+            </View>
           )}
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: 'rgba(41,39,34,0.45)' }]}>
+            <Ionicons name="arrow-back" size={18} color="#fff" />
           </TouchableOpacity>
-
-          {/* Urgency banner */}
           {donation.freshnessStatus === 'URGENT' && (
-            <View style={styles.urgentBanner}>
-              <Text style={styles.urgentText}>⚡ URGENT PICKUP NEEDED</Text>
+            <View style={[styles.urgentBanner, { backgroundColor: Colors.error }]}>
+              <Text style={styles.urgentText}>URGENT PICKUP NEEDED</Text>
             </View>
           )}
         </View>
 
         <View style={styles.content}>
+          {/* ── Title Block ── */}
           <View style={styles.titleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.categoryLabelText}>
-                {cat?.label ? cat.label.toUpperCase() : 'FOOD SURPLUS'} · {donation.food.isVegetarian ? 'VEGETARIAN' : 'NON-VEGETARIAN'}
+              <Text style={styles.categoryLabel}>
+                {cat?.label?.toUpperCase() ?? 'FOOD'} · {donation.food.isVegetarian ? 'VEG' : 'NON-VEG'}
               </Text>
               <Text style={[styles.foodName, { color: theme.colors.text }]}>{donation.food.name}</Text>
               <Text style={[styles.orgName, { color: theme.colors.textSecondary }]}>
@@ -181,41 +172,39 @@ export default function NGODonationDetailScreen() {
             <StatusChip status={donation.freshnessStatus} size="md" />
           </View>
 
-          {/* Key info */}
-          <View style={styles.keyInfoRow}>
-            <View style={[styles.keyInfoCard, { backgroundColor: Colors.primaryAlpha10, borderColor: Colors.primary, borderWidth: 1 }]}>
-              <Ionicons name="people" size={16} color={Colors.primary} />
-              <Text style={[styles.keyInfoValue, { color: Colors.primary }]}>{donation.servings}</Text>
-              <Text style={[styles.keyInfoLabel, { color: theme.colors.textSecondary }]}>PORTIONS</Text>
-            </View>
-            <View style={[styles.keyInfoCard, { backgroundColor: Colors.accentAlpha10, borderColor: Colors.accent, borderWidth: 1 }]}>
-              <Ionicons name="location-sharp" size={16} color={Colors.accent} />
-              <Text style={[styles.keyInfoValue, { color: Colors.accent }]}>{donation.distanceKm ?? '?'} km</Text>
-              <Text style={[styles.keyInfoLabel, { color: theme.colors.textSecondary }]}>DISTANCE</Text>
-            </View>
-            <View style={[styles.keyInfoCard, { backgroundColor: Colors.yellowAlpha20, borderColor: Colors.yellow, borderWidth: 1 }]}>
-              <Ionicons name="time" size={16} color={Colors.yellow} />
-              <Text style={[styles.keyInfoValue, { color: Colors.yellow }]}>
-                {hoursLeft > 0 ? `${hoursLeft}h` : `${minutesLeft}m`}
-              </Text>
-              <Text style={[styles.keyInfoLabel, { color: theme.colors.textSecondary }]}>AVAILABLE</Text>
-            </View>
+          <HandDrawnSeparator />
+
+          {/* ── Key Stats ── */}
+          <View style={styles.statsRow}>
+            {[
+              { icon: 'people-outline',   value: `${donation.servings}`,                       label: 'PORTIONS',  color: Colors.primary  },
+              { icon: 'location-outline', value: `${donation.distanceKm ?? '?'} km`,            label: 'DISTANCE',  color: Colors.accent   },
+              { icon: 'time-outline',     value: hoursLeft > 0 ? `${hoursLeft}h` : `${minutesLeft}m`, label: 'AVAILABLE', color: Colors.yellow   },
+            ].map(stat => (
+              <View key={stat.label} style={[styles.statCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <Ionicons name={stat.icon as any} size={15} color={stat.color} />
+                <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textTertiary }]}>{stat.label}</Text>
+              </View>
+            ))}
           </View>
 
-          {/* Trust Banner */}
-          <View style={[styles.trustBanner, { backgroundColor: '#FAF8F1', borderColor: Colors.border, borderWidth: 1 }]}>
-            <BotanicalSprig size={28} />
+          {/* ── Trust Callout ── */}
+          <View style={[styles.trustBanner, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <BotanicalSprig size={22} color={Colors.primary} />
             <Text style={[styles.trustText, { color: theme.colors.textSecondary }]}>
               "By rescuing this meal, you're helping prevent good food from going to waste."
             </Text>
           </View>
 
-          {/* Donor info */}
-          <Card style={styles.donorCard} padding={14}>
-            <Text style={[styles.cardLabel, { color: theme.colors.textSecondary }]}>THE DONOR</Text>
+          {/* ── Donor Info ── */}
+          <Card style={styles.sectionCard} padding={Spacing.base}>
+            <Text style={[styles.cardLabel, { color: theme.colors.textTertiary }]}>THE DONOR</Text>
             <View style={styles.donorRow}>
-              <View style={[styles.donorAvatar, { backgroundColor: Colors.primaryAlpha20 }]}>
-                <Text style={{ fontSize: 20 }}>🏪</Text>
+              <View style={[styles.donorInitial, { backgroundColor: Colors.primaryAlpha12 }]}>
+                <Text style={[styles.donorLetter, { color: Colors.primary }]}>
+                  {(donation.donor.organizationName ?? donation.donor.name).charAt(0).toUpperCase()}
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.donorName, { color: theme.colors.text }]}>
@@ -223,92 +212,103 @@ export default function NGODonationDetailScreen() {
                 </Text>
                 {donation.donor.isVerified && (
                   <View style={styles.verifiedRow}>
-                    <Ionicons name="shield-checkmark" size={12} color={Colors.primary} />
+                    <Ionicons name="shield-checkmark" size={10} color={Colors.primary} />
                     <Text style={[styles.verifiedText, { color: Colors.primary }]}>Verified Local Donor</Text>
                   </View>
                 )}
               </View>
-              <TouchableOpacity style={[styles.callBtn, { backgroundColor: Colors.primaryAlpha10 }]}>
-                <Ionicons name="call" size={16} color={Colors.primary} />
+              <TouchableOpacity style={[styles.callBtn, { backgroundColor: Colors.primaryAlpha08, borderColor: Colors.primary }]}>
+                <Ionicons name="call-outline" size={15} color={Colors.primary} />
               </TouchableOpacity>
             </View>
           </Card>
 
-          {/* Details */}
-          <Card style={styles.detailsCard} padding={14}>
-            <Text style={[styles.cardLabel, { color: theme.colors.textSecondary }]}>LISTING DETAILS</Text>
+          {/* ── Details ── */}
+          <Card style={styles.sectionCard} padding={Spacing.base}>
+            <Text style={[styles.cardLabel, { color: theme.colors.textTertiary }]}>LISTING DETAILS</Text>
             {[
               { label: 'Pickup Location', value: donation.pickupLocation.address },
-              { label: 'Packaging Type', value: donation.packagingType },
-              { label: 'Prepared At', value: formatDate(donation.preparedAt) },
-              { label: 'Rescue Before', value: formatDate(donation.expiresAt) },
-            ].map(item => (
-              <View key={item.label} style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>{item.label}</Text>
-                <Text style={[styles.detailValue, { color: theme.colors.text }]} numberOfLines={2}>
-                  {item.value}
-                </Text>
+              { label: 'Packaging',       value: donation.packagingType            },
+              { label: 'Prepared At',     value: formatDate(donation.preparedAt)   },
+              { label: 'Rescue Before',   value: formatDate(donation.expiresAt)    },
+            ].map((item, i, arr) => (
+              <View key={item.label}>
+                <View style={styles.detailRow}>
+                  <Text style={[styles.detailLabel, { color: theme.colors.textTertiary }]}>{item.label}</Text>
+                  <Text style={[styles.detailValue, { color: theme.colors.text }]} numberOfLines={2}>{item.value}</Text>
+                </View>
+                {i < arr.length - 1 && <View style={[styles.sep, { backgroundColor: theme.colors.divider }]} />}
               </View>
             ))}
           </Card>
 
-          {donation.notes && (
-            <Card style={{ marginBottom: Spacing.base }} padding={14}>
-              <Text style={[styles.cardLabel, { color: theme.colors.textSecondary }]}>DONOR NOTES</Text>
+          {donation.notes ? (
+            <Card style={styles.sectionCard} padding={Spacing.base}>
+              <Text style={[styles.cardLabel, { color: theme.colors.textTertiary }]}>NOTES FROM DONOR</Text>
               <Text style={[styles.notesText, { color: theme.colors.text }]}>{donation.notes}</Text>
             </Card>
-          )}
+          ) : null}
 
-          <View style={{ height: 120 }} />
+          <View style={{ height: 100 }} />
         </View>
       </ScrollView>
 
-
-      {/* CTA */}
+      {/* ── Fixed CTA ── */}
       {canClaim && (
         <View style={[styles.ctaArea, { backgroundColor: theme.colors.background, borderTopColor: theme.colors.border }]}>
           <Button
-            label="Rescue This Food 🙌"
+            label="Reserve This Food"
             onPress={() => setShowClaimModal(true)}
             variant="primary"
-            size="xl"
+            size="lg"
           />
+          <TouchableOpacity onPress={() => router.push('/ngo/pickup-tracking')} style={styles.directionsLink}>
+            <Ionicons name="navigate-outline" size={13} color={Colors.primary} />
+            <Text style={styles.directionsText}>GET DIRECTIONS</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* Claim Confirmation Modal */}
+      {/* ── Claim Modal ── */}
       <Modal visible={showClaimModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalEmoji}>🤝</Text>
+
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              Ready to rescue this food?
+              Confirm Reservation
             </Text>
-            <View style={[styles.claimDetails, { backgroundColor: Colors.primaryAlpha10 }]}>
-              <Text style={[styles.claimDetailItem, { color: Colors.primary }]}>
-                🍽️ {donation.servings} meals
-              </Text>
-              <Text style={[styles.claimDetailItem, { color: Colors.primary }]}>
-                📍 {donation.distanceKm ?? '?'} km away
-              </Text>
-              <Text style={[styles.claimDetailItem, { color: Colors.primary }]}>
-                ⏰ Pickup before {new Date(donation.expiresAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
-              </Text>
+            <Text style={[styles.modalSub, { color: theme.colors.textSecondary }]}>
+              You're about to rescue {donation.food.name} for your community.
+            </Text>
+
+            <View style={[styles.modalDetails, { backgroundColor: Colors.primaryAlpha08, borderColor: theme.colors.border }]}>
+              {[
+                { icon: 'restaurant-outline', text: `${donation.servings} meals`,                                    color: Colors.primary  },
+                { icon: 'location-outline',   text: `${donation.distanceKm ?? '?'} km away`,                        color: Colors.accent   },
+                { icon: 'time-outline',       text: `Pickup before ${new Date(donation.expiresAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`, color: Colors.yellow },
+              ].map(item => (
+                <View key={item.icon} style={styles.modalDetailRow}>
+                  <Ionicons name={item.icon as any} size={14} color={item.color} />
+                  <Text style={[styles.modalDetailText, { color: theme.colors.textSecondary }]}>{item.text}</Text>
+                </View>
+              ))}
             </View>
+
             <View style={styles.modalBtns}>
               <Button
-                label="Confirm Claim"
+                label={claiming ? 'Reserving...' : 'Confirm Reservation'}
                 onPress={handleClaim}
                 variant="primary"
-                size="xl"
+                size="lg"
                 isLoading={claiming}
               />
               <Button
                 label="Cancel"
                 onPress={() => setShowClaimModal(false)}
-                variant="ghost"
+                variant="outline"
                 size="md"
+                disabled={claiming}
               />
             </View>
           </View>
@@ -320,242 +320,108 @@ export default function NGODonationDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Loading / Error
+  errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  errorTitle: { fontFamily: FontFamily.serifDisplay, fontSize: FontSize.xl },
+  errorLink: { paddingVertical: Spacing.sm },
+
+  // Hero
   imageWrap: { height: 260, position: 'relative' },
-  image: { width: '100%', height: 260 },
-  imagePlaceholder: { width: '100%', height: 260, alignItems: 'center', justifyContent: 'center' },
+  image: { width: '100%', height: '100%' },
+  imagePlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  placeholderLetter: { fontFamily: FontFamily.serifDisplay, fontSize: 64 },
   backBtn: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(41, 41, 37, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', top: 16, left: 16,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
   },
   urgentBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.error,
-    padding: Spacing.sm,
-    alignItems: 'center',
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingVertical: 6, alignItems: 'center',
   },
-  urgentText: {
-    color: '#fff',
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize.xs,
-    letterSpacing: 0.5,
-  },
+  urgentText: { color: '#fff', fontFamily: FontFamily.outfitBold, fontSize: 10, letterSpacing: 1 },
+
+  // Content
   content: { padding: Spacing.xl },
-  titleRow: {
-    marginBottom: Spacing.base,
-  },
-  categoryLabelText: {
-    fontSize: 9,
-    fontFamily: FontFamily.outfitBold,
-    letterSpacing: 1.2,
-    color: Colors.primary,
-    marginBottom: 4,
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.sm },
+  categoryLabel: {
+    fontSize: 9, fontFamily: FontFamily.outfitBold, letterSpacing: 1,
+    color: Colors.primary, marginBottom: 4,
   },
   foodName: {
     fontFamily: FontFamily.serifDisplay,
-    fontSize: FontSize['3xl'],
-    lineHeight: FontSize['3xl'] * 1.05,
-    color: Colors.textPrimary,
-    marginTop: 2,
+    fontSize: FontSize['2xl'] + 2,
+    lineHeight: (FontSize['2xl'] + 2) * 1.2,
+    letterSpacing: 0.2,
+    marginBottom: 4,
   },
-  orgName: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    marginTop: 4,
+  orgName: { fontFamily: FontFamily.interRegular, fontSize: FontSize.sm },
+
+  // Stats row
+  statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.base },
+  statCard: {
+    flex: 1, alignItems: 'center', paddingVertical: Spacing.md,
+    borderRadius: Radius.xs, borderWidth: 1, gap: 3,
   },
-  keyInfoRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
-  },
-  keyInfoCard: {
-    flex: 1,
-    alignItems: 'center',
-    padding: Spacing.sm + 2,
-    borderRadius: Radius.sm,
-    gap: 2,
-  },
-  keyInfoValue: {
-    fontFamily: FontFamily.serifDisplay,
-    fontSize: FontSize.lg + 1,
-  },
-  keyInfoLabel: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: 9,
-    letterSpacing: 0.5,
-  },
+  statValue: { fontFamily: FontFamily.serifDisplay, fontSize: FontSize.lg },
+  statLabel: { fontSize: 8, fontFamily: FontFamily.outfitBold, letterSpacing: 0.8 },
+
+  // Trust
   trustBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: Radius.sm,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    padding: Spacing.md, borderRadius: Radius.xs, borderWidth: 1,
     marginBottom: Spacing.base,
   },
-  trustText: {
-    flex: 1,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.xs,
-    fontStyle: 'italic',
-    lineHeight: FontSize.xs * 1.4,
-  },
-  donorCard: { marginBottom: Spacing.base },
-  cardLabel: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: 9,
-    letterSpacing: 1,
-    marginBottom: Spacing.sm,
-  },
+  trustText: { flex: 1, fontFamily: FontFamily.serifDisplay, fontSize: FontSize.xs + 1, fontStyle: 'italic', lineHeight: 16 },
+
+  // Sections
+  sectionCard: { marginBottom: Spacing.sm },
+  cardLabel: { fontSize: 9, fontFamily: FontFamily.outfitBold, letterSpacing: 1, marginBottom: Spacing.sm },
+
+  // Donor row
   donorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  donorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  donorName: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.base,
-  },
-  verifiedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
-  },
-  verifiedText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.xs,
-  },
-  callBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailsCard: { marginBottom: Spacing.base },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: Spacing.xs + 2,
-    borderBottomWidth: 0.8,
-    borderBottomColor: Colors.border,
-  },
-  detailLabel: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
-    flex: 1,
-  },
-  detailValue: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
-    flex: 1.5,
-    textAlign: 'right',
-    textTransform: 'capitalize',
-  },
-  notesText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.base,
-    lineHeight: FontSize.base * 1.5,
-    marginTop: 4,
-  },
+  donorInitial: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  donorLetter: { fontFamily: FontFamily.serifDisplay, fontSize: FontSize.xl },
+  donorName: { fontFamily: FontFamily.outfitSemiBold, fontSize: FontSize.sm },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  verifiedText: { fontFamily: FontFamily.outfitSemiBold, fontSize: 9, letterSpacing: 0.3 },
+  callBtn: { width: 36, height: 36, borderRadius: Radius.xs, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // Details
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.sm, paddingVertical: 9 },
+  detailLabel: { fontFamily: FontFamily.interRegular, fontSize: FontSize.xs, flex: 1 },
+  detailValue: { fontFamily: FontFamily.outfitSemiBold, fontSize: FontSize.xs + 1, flex: 2, textAlign: 'right' },
+  sep: { height: 0.5 },
+  notesText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.sm, lineHeight: FontSize.sm * 1.5, marginTop: 4 },
+
+  // CTA
   ctaArea: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: Spacing.xl,
-    paddingBottom: Spacing['2xl'],
-    borderTopWidth: 0.5,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.base,
+    paddingBottom: 28, borderTopWidth: 1, gap: Spacing.sm,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: Spacing['2xl'],
-    alignItems: 'center',
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D0D0D0',
-    marginBottom: Spacing.xl,
-  },
-  modalEmoji: { fontSize: 52, marginBottom: Spacing.base },
-  modalTitle: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize['2xl'],
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-  },
-  claimDetails: {
-    width: '100%',
-    padding: Spacing.base,
-    borderRadius: Radius.lg,
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  claimDetailItem: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.base,
-  },
-  modalBtns: { width: '100%', gap: Spacing.sm },
+  directionsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  directionsText: { color: Colors.primary, fontFamily: FontFamily.outfitBold, fontSize: 9, letterSpacing: 0.5 },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(41,39,34,0.45)' },
+  modalSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.xl, gap: Spacing.md },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.sm },
+  modalTitle: { fontFamily: FontFamily.serifDisplay, fontSize: FontSize.xl, letterSpacing: 0.2 },
+  modalSub: { fontFamily: FontFamily.interRegular, fontSize: FontSize.sm, lineHeight: FontSize.sm * 1.5 },
+  modalDetails: { borderRadius: Radius.xs, borderWidth: 1, padding: Spacing.base, gap: Spacing.sm },
+  modalDetailRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  modalDetailText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.sm },
+  modalBtns: { gap: Spacing.sm, marginTop: Spacing.sm },
+
   // Success
-  successWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing['2xl'],
-    gap: Spacing.base,
-  },
-  successCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successTitle: {
-    fontFamily: FontFamily.outfitBlack,
-    fontSize: FontSize['4xl'],
-    letterSpacing: -1,
-    textAlign: 'center',
-  },
-  successSub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.lg,
-    textAlign: 'center',
-    lineHeight: FontSize.lg * 1.5,
-  },
-  claimedSummary: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-  },
-  claimedText: {
-    fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.base,
-    textAlign: 'center',
-  },
-  successBtns: { width: '100%', gap: Spacing.sm, marginTop: Spacing.base },
-  errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  errorText: { fontFamily: FontFamily.outfitBold, fontSize: FontSize.xl },
+  successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing['2xl'], gap: Spacing.base },
+  successCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  successTitle: { fontFamily: FontFamily.serifDisplay, fontSize: FontSize['2xl'], letterSpacing: 0.2 },
+  successSub: { fontFamily: FontFamily.interRegular, fontSize: FontSize.sm, textAlign: 'center', lineHeight: FontSize.sm * 1.5 },
+  claimedSummary: { borderRadius: Radius.xs, borderWidth: 1, padding: Spacing.base, gap: Spacing.sm, alignSelf: 'stretch' },
+  claimedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  claimedItem: { fontFamily: FontFamily.outfitSemiBold, fontSize: FontSize.sm },
+  successBtns: { alignSelf: 'stretch', gap: Spacing.sm, marginTop: Spacing.sm },
 });

@@ -1,4 +1,4 @@
-// ShareBite — Discover Screen (NGO: Nearby donations | Donor: Browse all)
+// ShareBite — Discover / Nearby Screen
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   TextInput,
-  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { DonationCard } from '../../components/donation/DonationCard';
 import { DonationCardSkeleton } from '../../components/ui/SkeletonLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
 import { Donation } from '../../types';
 import { Colors } from '../../constants/colors';
@@ -28,16 +28,16 @@ import { Spacing, Radius } from '../../constants/spacing';
 type FilterType = 'all' | 'fresh' | 'urgent' | 'veg' | 'non-veg';
 
 const FILTERS: { key: FilterType; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'fresh', label: '🟢 Fresh' },
-  { key: 'urgent', label: '🔴 Urgent' },
-  { key: 'veg', label: '🥦 Veg' },
-  { key: 'non-veg', label: '🍗 Non-Veg' },
+  { key: 'all',     label: 'All'     },
+  { key: 'fresh',   label: 'Fresh'   },
+  { key: 'urgent',  label: 'Urgent'  },
+  { key: 'veg',     label: 'Veg'     },
+  { key: 'non-veg', label: 'Non-Veg' },
 ];
 
 export default function DiscoverScreen() {
   const { user } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [filtered, setFiltered] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,116 +75,120 @@ export default function DiscoverScreen() {
     setFiltered(result);
   }, [search, activeFilter, donations]);
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>
-          {isNGO ? 'Nearby Tables' : 'Browse Tables'}
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          {filtered.length} surplus meal{filtered.length !== 1 ? 's' : ''} available
-        </Text>
+  const ListHeader = () => (
+    <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
+      {/* Title */}
+      <Text style={[styles.title, { color: theme.colors.text }]}>Nearby</Text>
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+        Food waiting to find another table.
+      </Text>
+      <HandDrawnSeparator />
 
-        {/* Search Bar */}
-        <View style={[styles.searchBar, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-          <Ionicons name="search-outline" size={16} color={theme.colors.textSecondary} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search kitchens, dishes..."
-            placeholderTextColor={theme.colors.placeholder}
-            style={[styles.searchInput, { color: theme.colors.text, fontFamily: FontFamily.interRegular }]}
-            accessibilityLabel="Search donations"
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={16} color={theme.colors.textTertiary} />
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* Result count */}
+      <Text style={[styles.resultCount, { color: theme.colors.textTertiary }]}>
+        {filtered.length} meal{filtered.length !== 1 ? 's' : ''} available nearby
+      </Text>
 
-        {/* Filter chips */}
-        <FlatList
-          data={FILTERS}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={f => f.key}
-          contentContainerStyle={styles.filters}
-          renderItem={({ item }) => {
-            const isActive = activeFilter === item.key;
-            return (
-              <TouchableOpacity
-                onPress={() => setActiveFilter(item.key)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: isActive ? Colors.primary : theme.colors.surface,
-                    borderColor: isActive ? Colors.primary : theme.colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    { 
-                      color: isActive ? '#FAF8F1' : theme.colors.textSecondary,
-                      fontSize: FontSize.xs,
-                    },
-                  ]}
-                >
-                  {item.label.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
+      {/* Search */}
+      <View style={[styles.searchBar, { backgroundColor: theme.colors.inputBg, borderColor: theme.colors.border }]}>
+        <Ionicons name="search-outline" size={15} color={theme.colors.textTertiary} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search kitchens, dishes..."
+          placeholderTextColor={theme.colors.placeholder}
+          style={[styles.searchInput, { color: theme.colors.text, fontFamily: FontFamily.interRegular }]}
+          accessibilityLabel="Search donations"
         />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={15} color={theme.colors.textTertiary} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Donation List */}
-      {loading ? (
+      {/* Filter chips — outlined, no emoji */}
+      <View style={styles.filtersRow}>
+        {FILTERS.map(f => {
+          const isActive = activeFilter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setActiveFilter(f.key)}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: isActive ? Colors.primary : 'transparent',
+                  borderColor: isActive ? Colors.primary : theme.colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: isActive ? Colors.textInverse : theme.colors.textSecondary },
+                ]}
+              >
+                {f.label.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <ListHeader />
         <View style={styles.loadingList}>
           <DonationCardSkeleton />
           <DonationCardSkeleton />
           <DonationCardSkeleton />
         </View>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          emoji="📭"
-          title="No donations found"
-          subtitle="Try adjusting your filters or check again soon — new donations appear anytime."
-          actionLabel="Clear Filters"
-          onAction={() => { setActiveFilter('all'); setSearch(''); }}
-        />
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); loadData(); }}
-              tintColor={Colors.primary}
-              colors={[Colors.primary]}
-            />
-          }
-          renderItem={({ item }) => (
-            <DonationCard
-              donation={item}
-              onPress={() =>
-                isNGO
-                  ? router.push(`/ngo/${item.id}`)
-                  : router.push(`/donor/${item.id}`)
-              }
-              onClaim={isNGO ? () => router.push(`/ngo/claim-confirmation?id=${item.id}`) : undefined}
-              showDistance
-            />
-          )}
-          ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
-        />
-      )}
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      <FlatList
+        data={filtered}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<ListHeader />}
+        ListEmptyComponent={
+          <EmptyState
+            title="No rescued meals nearby."
+            subtitle="Try adjusting your filters or check back soon — new donations appear anytime."
+            actionLabel="Clear Filters"
+            onAction={() => { setActiveFilter('all'); setSearch(''); }}
+          />
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); loadData(); }}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
+        renderItem={({ item }) => (
+          <DonationCard
+            donation={item}
+            onPress={() =>
+              isNGO
+                ? router.push(`/ngo/${item.id}`)
+                : router.push(`/donor/${item.id}`)
+            }
+            onClaim={isNGO ? () => router.push(`/ngo/claim-confirmation?id=${item.id}`) : undefined}
+            showDistance
+          />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
+      />
     </SafeAreaView>
   );
 }
@@ -199,15 +203,20 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize['4xl'] - 2,
-    color: Colors.textPrimary,
-    marginBottom: 2,
+    letterSpacing: 0.2,
+    marginBottom: 3,
   },
   subtitle: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
+    fontSize: FontSize.sm,
     fontStyle: 'italic',
-    marginBottom: Spacing.base,
+    marginBottom: Spacing.xs,
+  },
+  resultCount: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.xs,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.xs,
   },
   searchBar: {
     flexDirection: 'row',
@@ -223,23 +232,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.sm,
   },
-  filters: {
-    paddingBottom: Spacing.sm,
+  filtersRow: {
+    flexDirection: 'row',
     gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    flexWrap: 'wrap',
   },
   filterChip: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: Radius.xs,
     borderWidth: 1,
   },
   filterText: {
     fontFamily: FontFamily.outfitSemiBold,
+    fontSize: 9,
+    letterSpacing: 0.8,
   },
   list: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing['3xl'],
-    paddingTop: Spacing.sm,
   },
   loadingList: {
     paddingHorizontal: Spacing.xl,

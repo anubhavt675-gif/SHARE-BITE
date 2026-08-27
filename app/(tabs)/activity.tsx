@@ -18,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StatusChip } from '../../components/ui/StatusChip';
 import { DonationCardSkeleton } from '../../components/ui/SkeletonLoader';
+import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
 import { Donation } from '../../types';
 import { FOOD_CATEGORIES, DONATION_STATUS_LABELS } from '../../services/mock-data';
@@ -28,59 +29,81 @@ import { Spacing, Radius, Shadow } from '../../constants/spacing';
 type ActivityFilter = 'all' | 'available' | 'claimed' | 'completed' | 'expired';
 
 const ACTIVITY_FILTERS: { key: ActivityFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'available', label: 'Active' },
-  { key: 'claimed', label: 'Claimed' },
+  { key: 'all',       label: 'All'       },
+  { key: 'available', label: 'Active'    },
+  { key: 'claimed',   label: 'Claimed'   },
   { key: 'completed', label: 'Completed' },
-  { key: 'expired', label: 'Expired' },
+  { key: 'expired',   label: 'Expired'   },
 ];
+
+// Timeline dot color by status
+function getStatusColor(status: string): string {
+  if (['AVAILABLE', 'CLAIMED', 'PICKUP_CONFIRMED'].includes(status)) return Colors.primary;
+  if (['COMPLETED', 'PICKED_UP'].includes(status)) return Colors.accent;
+  return Colors.textTertiary;
+}
 
 function ActivityItem({ donation, onPress }: { donation: Donation; onPress: () => void }) {
   const { theme, isDark } = useTheme();
   const category = FOOD_CATEGORIES.find(c => c.key === donation.food.category);
   const date = new Date(donation.createdAt);
   const dateStr = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const timeStr = date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const statusColor = getStatusColor(donation.status);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.activityItem,
-        { backgroundColor: theme.colors.card, ...(isDark ? Shadow.dark : Shadow.sm) },
+        {
+          backgroundColor: theme.colors.card,
+          borderColor: theme.colors.border,
+        },
       ]}
-      activeOpacity={0.85}
+      activeOpacity={0.88}
     >
-      {/* Image / Emoji */}
-      <View style={[styles.activityImg, { backgroundColor: `${category?.color}18` }]}>
+      {/* Timeline indicator */}
+      <View style={styles.timelineCol}>
+        <View style={[styles.timelineDot, { backgroundColor: statusColor }]} />
+        <View style={[styles.timelineLine, { backgroundColor: theme.colors.divider }]} />
+      </View>
+
+      {/* Image thumbnail */}
+      <View style={[styles.thumbWrap, { backgroundColor: theme.colors.surfaceVariant }]}>
         {donation.imageUrl ? (
-          <Image source={{ uri: donation.imageUrl }} style={styles.activityImgFull} />
+          <Image source={{ uri: donation.imageUrl }} style={styles.thumb} />
         ) : (
-          <Text style={{ fontSize: 28 }}>{category?.emoji ?? '🍽️'}</Text>
+          <Text style={[styles.thumbLetter, { color: theme.colors.textTertiary }]}>
+            {category?.label?.charAt(0).toUpperCase() ?? 'F'}
+          </Text>
         )}
       </View>
 
-      {/* Info */}
-      <View style={styles.activityInfo}>
+      {/* Content */}
+      <View style={styles.activityContent}>
         <View style={styles.activityHeader}>
-          <Text style={[styles.activityTitle, { color: theme.colors.text }]} numberOfLines={1}>
+          <Text style={[styles.activityFoodName, { color: theme.colors.text }]} numberOfLines={1}>
             {donation.food.name}
           </Text>
           <Text style={[styles.activityDate, { color: theme.colors.textTertiary }]}>{dateStr}</Text>
         </View>
+
         <Text style={[styles.activityMeta, { color: theme.colors.textSecondary }]}>
-          {donation.servings} servings • {donation.food.isVegetarian ? 'Veg' : 'Non-Veg'}
+          {donation.servings} servings · {donation.food.isVegetarian ? 'Veg' : 'Non-Veg'}
         </Text>
+
         <View style={styles.activityFooter}>
           <StatusChip status={donation.status} label={DONATION_STATUS_LABELS[donation.status]} />
           {donation.status === 'COMPLETED' && (
-            <Text style={[styles.activityImpact, { color: Colors.primary }]}>
-              🌱 +{donation.servings} meals saved
+            <Text style={[styles.activitySaved, { color: Colors.accent }]}>
+              {donation.servings} meals saved
             </Text>
           )}
         </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+      <Ionicons name="chevron-forward" size={14} color={theme.colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -123,50 +146,47 @@ export default function ActivityScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Activity</Text>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-          {isNGO ? 'Your claimed food' : 'Your donation history'}
+          {isNGO ? 'Your rescued food timeline.' : 'Your donation history.'}
         </Text>
+        <HandDrawnSeparator />
       </View>
 
       {/* Filter chips */}
-      <FlatList
-        data={ACTIVITY_FILTERS}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={f => f.key}
-        contentContainerStyle={styles.filtersWrap}
-        renderItem={({ item }) => (
+      <View style={styles.filtersWrap}>
+        {ACTIVITY_FILTERS.map(f => (
           <TouchableOpacity
-            onPress={() => setActiveFilter(item.key)}
+            key={f.key}
+            onPress={() => setActiveFilter(f.key)}
             style={[
               styles.filterChip,
               {
-                backgroundColor: activeFilter === item.key ? Colors.primary : theme.colors.surfaceVariant,
-                borderColor: activeFilter === item.key ? Colors.primary : theme.colors.border,
+                backgroundColor: activeFilter === f.key ? Colors.primary : 'transparent',
+                borderColor: activeFilter === f.key ? Colors.primary : theme.colors.border,
               },
             ]}
           >
             <Text
               style={[
                 styles.filterText,
-                { color: activeFilter === item.key ? '#fff' : theme.colors.textSecondary },
+                { color: activeFilter === f.key ? Colors.textInverse : theme.colors.textSecondary },
               ]}
             >
-              {item.label}
+              {f.label.toUpperCase()}
             </Text>
           </TouchableOpacity>
-        )}
-      />
+        ))}
+      </View>
 
       {/* List */}
       {loading ? (
-        <View style={{ paddingHorizontal: Spacing.xl }}>
+        <View style={styles.loadingWrap}>
+          <DonationCardSkeleton />
           <DonationCardSkeleton />
           <DonationCardSkeleton />
         </View>
       ) : filtered.length === 0 ? (
         <EmptyState
-          emoji="📋"
-          title="Nothing here yet"
+          title="Nothing here yet."
           subtitle={
             isNGO
               ? 'Your rescued meals will appear here.'
@@ -211,73 +231,111 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   title: {
-    fontFamily: FontFamily.outfitBold,
-    fontSize: FontSize['2xl'],
-    marginBottom: 2,
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: FontSize['4xl'] - 2,
+    letterSpacing: 0.2,
+    marginBottom: 3,
   },
   subtitle: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.sm,
+    fontStyle: 'italic',
+    marginBottom: Spacing.xs,
   },
   filtersWrap: {
+    flexDirection: 'row',
     paddingHorizontal: Spacing.xl,
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
+    flexWrap: 'wrap',
   },
   filterChip: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: 7,
-    borderRadius: Radius.full,
+    paddingVertical: 6,
+    borderRadius: Radius.xs,
     borderWidth: 1,
   },
   filterText: {
     fontFamily: FontFamily.outfitSemiBold,
-    fontSize: FontSize.sm,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  loadingWrap: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
   },
   list: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing['3xl'],
+    paddingTop: Spacing.sm,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.sm,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
+    borderWidth: 1,
   },
-  activityImg: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.md,
+  // Timeline
+  timelineCol: {
+    alignItems: 'center',
+    width: 14,
+  },
+  timelineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  timelineLine: {
+    width: 1,
+    flex: 1,
+    minHeight: 30,
+  },
+  // Thumbnail
+  thumbWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    flexShrink: 0,
   },
-  activityImgFull: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.md,
+  thumb: {
+    width: 54,
+    height: 54,
   },
-  activityInfo: { flex: 1 },
+  thumbLetter: {
+    fontFamily: FontFamily.serifDisplay,
+    fontSize: 22,
+  },
+  // Content
+  activityContent: {
+    flex: 1,
+  },
   activityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 3,
   },
-  activityTitle: {
-    fontFamily: FontFamily.outfitSemiBold,
+  activityFoodName: {
+    fontFamily: FontFamily.serifDisplay,
     fontSize: FontSize.base,
     flex: 1,
+    marginRight: Spacing.sm,
   },
   activityDate: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.xs,
+    flexShrink: 0,
   },
   activityMeta: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
     marginBottom: Spacing.xs,
   },
   activityFooter: {
@@ -286,7 +344,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     flexWrap: 'wrap',
   },
-  activityImpact: {
+  activitySaved: {
     fontFamily: FontFamily.outfitSemiBold,
     fontSize: FontSize.xs,
   },
