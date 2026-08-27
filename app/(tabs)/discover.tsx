@@ -1,6 +1,12 @@
-// ShareBite — Discover / Nearby Screen
+// ShareBite — Discover / Nearby Screen (Performance Optimized)
+// Key changes:
+//  - ListHeader extracted as a stable component (prevents FlatList header remounting)
+//  - Search debounced 300ms (no API call on every keystroke)
+//  - filtered list computed with useMemo (no useEffect + setState)
+//  - renderItem and onRefresh wrapped in useCallback
+//  - FlatList tuned: initialNumToRender, maxToRenderPerBatch, windowSize, removeClippedSubviews
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -37,80 +43,37 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: 'non-veg', label: 'Non-Veg' },
 ];
 
-export default function DiscoverScreen() {
-  const { user } = useAuth();
-  const { theme } = useTheme();
-  const [donations, setDonations] = useState<Donation[]>([]);
-  const [filtered, setFiltered] = useState<Donation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [search, setSearch] = useState('');
-  const latRef = useRef(28.6139);
-  const lngRef = useRef(77.2090);
+// ── List Header extracted as a stable component ────────────────────────────────
+// Defined outside the screen component so FlatList never remounts it on re-render.
+interface DiscoverHeaderProps {
+  filteredCount: number;
+  search: string;
+  onSearchChange: (text: string) => void;
+  onSearchClear: () => void;
+  activeFilter: FilterType;
+  onFilterChange: (f: FilterType) => void;
+  theme: any;
+}
 
-  const isNGO = user?.role === 'ngo';
-
-  const loadData = useCallback(async () => {
-    try {
-      const loc = await LocationService.getCurrentLocation();
-      const lat = loc?.latitude ?? 28.6139;
-      const lng = loc?.longitude ?? 77.2090;
-      latRef.current = lat;
-      lngRef.current = lng;
-      const dons = await DonationsService.getNearbyDonations(lat, lng);
-      setDonations(dons);
-      setFiltered(dons);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('discover-food-listings')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'food_listings' },
-        async () => {
-          const dons = await DonationsService.getNearbyDonations(latRef.current, lngRef.current);
-          setDonations(dons);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  useEffect(() => {
-    let result = donations;
-    if (search.trim()) {
-      result = result.filter(d =>
-        d.food.name.toLowerCase().includes(search.toLowerCase()) ||
-        (d.donor.organizationName ?? '').toLowerCase().includes(search.toLowerCase()),
-      );
-    }
-    if (activeFilter === 'fresh') result = result.filter(d => d.freshnessStatus === 'FRESH');
-    if (activeFilter === 'urgent') result = result.filter(d => d.freshnessStatus === 'URGENT');
-    if (activeFilter === 'veg') result = result.filter(d => d.food.isVegetarian);
-    if (activeFilter === 'non-veg') result = result.filter(d => !d.food.isVegetarian);
-    setFiltered(result);
-  }, [search, activeFilter, donations]);
-
-  const ListHeader = () => (
+const DiscoverListHeader = React.memo(function DiscoverListHeader({
+  filteredCount,
+  search,
+  onSearchChange,
+  onSearchClear,
+  activeFilter,
+  onFilterChange,
+  theme,
+}: DiscoverHeaderProps) {
+  return (
     <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
-      {/* Title */}
       <Text style={[styles.title, { color: theme.colors.text }]}>Nearby</Text>
       <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
         Food waiting to find another table.
       </Text>
       <HandDrawnSeparator />
 
-      {/* Result count */}
       <Text style={[styles.resultCount, { color: theme.colors.textTertiary }]}>
-        {filtered.length} meal{filtered.length !== 1 ? 's' : ''} available nearby
+        {filteredCount} meal{filteredCount !== 1 ? 's' : ''} available nearby
       </Text>
 
       {/* Search */}
@@ -118,27 +81,27 @@ export default function DiscoverScreen() {
         <Ionicons name="search-outline" size={15} color={theme.colors.textTertiary} />
         <TextInput
           value={search}
-          onChangeText={setSearch}
+          onChangeText={onSearchChange}
           placeholder="Search kitchens, dishes..."
           placeholderTextColor={theme.colors.placeholder}
           style={[styles.searchInput, { color: theme.colors.text, fontFamily: FontFamily.interRegular }]}
           accessibilityLabel="Search donations"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <TouchableOpacity onPress={onSearchClear}>
             <Ionicons name="close-circle" size={15} color={theme.colors.textTertiary} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Filter chips — outlined, no emoji */}
+      {/* Filter chips */}
       <View style={styles.filtersRow}>
         {FILTERS.map(f => {
           const isActive = activeFilter === f.key;
           return (
             <TouchableOpacity
               key={f.key}
-              onPress={() => setActiveFilter(f.key)}
+              onPress={() => onFilterChange(f.key)}
               style={[
                 styles.filterChip,
                 {
@@ -161,11 +124,144 @@ export default function DiscoverScreen() {
       </View>
     </View>
   );
+});
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
+export default function DiscoverScreen() {
+  const { user } = useAuth();
+  const { theme } = useTheme();
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const latRef = useRef(28.6139);
+  const lngRef = useRef(77.2090);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Throttle realtime refetch to at most once per 5 seconds
+  const lastRealtimeFetch = useRef(0);
+
+  const isNGO = user?.role === 'ngo';
+
+  const loadData = useCallback(async () => {
+    try {
+      const loc = await LocationService.getCurrentLocation();
+      const lat = loc?.latitude ?? 28.6139;
+      const lng = loc?.longitude ?? 77.2090;
+      latRef.current = lat;
+      lngRef.current = lng;
+      const dons = await DonationsService.getNearbyDonations(lat, lng);
+      setDonations(dons);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('discover-food-listings')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'food_listings' },
+        async () => {
+          const now = Date.now();
+          if (now - lastRealtimeFetch.current < 5000) return; // throttle
+          lastRealtimeFetch.current = now;
+          const dons = await DonationsService.getNearbyDonations(latRef.current, lngRef.current);
+          setDonations(dons);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Debounce search input — only update debouncedSearch 300ms after typing stops
+  const handleSearchChange = useCallback((text: string) => {
+    setSearch(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(text);
+    }, 300);
+  }, []);
+
+  const handleSearchClear = useCallback(() => {
+    setSearch('');
+    setDebouncedSearch('');
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
+
+  // Compute filtered list with useMemo — no state update, no useEffect
+  const filtered = useMemo(() => {
+    let result = donations;
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(d =>
+        d.food.name.toLowerCase().includes(q) ||
+        (d.donor.organizationName ?? '').toLowerCase().includes(q),
+      );
+    }
+    if (activeFilter === 'fresh') result = result.filter(d => d.freshnessStatus === 'FRESH');
+    if (activeFilter === 'urgent') result = result.filter(d => d.freshnessStatus === 'URGENT');
+    if (activeFilter === 'veg') result = result.filter(d => d.food.isVegetarian);
+    if (activeFilter === 'non-veg') result = result.filter(d => !d.food.isVegetarian);
+    return result;
+  }, [debouncedSearch, activeFilter, donations]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
+  const renderItem = useCallback(({ item }: { item: Donation }) => (
+    <DonationCard
+      donation={item}
+      onPress={() =>
+        isNGO
+          ? router.push(`/ngo/${item.id}`)
+          : router.push(`/donor/${item.id}`)
+      }
+      onClaim={isNGO ? () => router.push(`/ngo/claim-confirmation?id=${item.id}`) : undefined}
+      showDistance
+    />
+  ), [isNGO]);
+
+  const keyExtractor = useCallback((item: Donation) => item.id, []);
+
+  const listHeader = useMemo(() => (
+    <DiscoverListHeader
+      filteredCount={filtered.length}
+      search={search}
+      onSearchChange={handleSearchChange}
+      onSearchClear={handleSearchClear}
+      activeFilter={activeFilter}
+      onFilterChange={setActiveFilter}
+      theme={theme}
+    />
+  ), [filtered.length, search, handleSearchChange, handleSearchClear, activeFilter, theme]);
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-        <ListHeader />
+        <DiscoverListHeader
+          filteredCount={0}
+          search={search}
+          onSearchChange={handleSearchChange}
+          onSearchClear={handleSearchClear}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          theme={theme}
+        />
         <View style={styles.loadingList}>
           <DonationCardSkeleton />
           <DonationCardSkeleton />
@@ -179,39 +275,33 @@ export default function DiscoverScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <FlatList
         data={filtered}
-        keyExtractor={item => item.id}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={<ListHeader />}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
           <EmptyState
             title="No rescued meals nearby."
             subtitle="Try adjusting your filters or check back soon — new donations appear anytime."
             actionLabel="Clear Filters"
-            onAction={() => { setActiveFilter('all'); setSearch(''); }}
+            onAction={() => { setActiveFilter('all'); handleSearchClear(); }}
           />
         }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); loadData(); }}
+            onRefresh={onRefresh}
             tintColor={Colors.primary}
             colors={[Colors.primary]}
           />
         }
-        renderItem={({ item }) => (
-          <DonationCard
-            donation={item}
-            onPress={() =>
-              isNGO
-                ? router.push(`/ngo/${item.id}`)
-                : router.push(`/donor/${item.id}`)
-            }
-            onClaim={isNGO ? () => router.push(`/ngo/claim-confirmation?id=${item.id}`) : undefined}
-            showDistance
-          />
-        )}
-        ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
+        renderItem={renderItem}
+        // ── FlatList performance tuning ──
+        initialNumToRender={5}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={true}
+        ItemSeparatorComponent={null}
       />
     </SafeAreaView>
   );

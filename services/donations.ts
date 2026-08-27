@@ -4,6 +4,16 @@
 import { supabase } from '../lib/supabase';
 import { Donation, CreateDonationForm, DonationStatus } from '../types';
 
+// ─── In-memory cache for getNearbyDonations ───────────────────────────────────
+// Prevents redundant Supabase calls on realtime events or fast navigation.
+const NEARBY_CACHE_TTL_MS = 30_000; // 30 seconds
+const nearbyCache = new Map<string, { data: Donation[]; expiresAt: number }>();
+
+function getNearbyKey(lat: number, lng: number): string {
+  // Round to 3 decimal places (~110m precision) to allow cache reuse
+  return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
+
 // ─── Category Mappers ─────────────────────────────────────────────────────────
 
 function toDbCategory(cat: string): string {
@@ -168,6 +178,13 @@ export const DonationsService = {
 
   // ── Nearby listings (uses get_nearby_food RPC when lat/lng available) ───────
   async getNearbyDonations(lat: number, lng: number, radiusKm = 15): Promise<Donation[]> {
+    // Check in-memory cache first to avoid redundant Supabase calls
+    const cacheKey = getNearbyKey(lat, lng);
+    const cached = nearbyCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+
     try {
       // Try the Haversine RPC first (most accurate)
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_nearby_food', {
@@ -177,27 +194,39 @@ export const DonationsService = {
       });
 
       if (!rpcError && rpcData && rpcData.length > 0) {
-        // RPC returns flattened rows without donor join — fetch donors separately
+        // RPC returns flattened rows without donor join — fetch only needed columns
         const ids: string[] = rpcData.map((r: any) => r.id);
         const { data: fullListings } = await supabase
           .from('food_listings')
-          .select('*, donor:profiles(*)')
+          .select(
+            'id, donor_id, title, description, category, food_type, servings, available_servings, ' +
+            'image_url, available_from, available_until, latitude, longitude, pickup_address, city, ' +
+            'status, created_at, updated_at, ' +
+            'donor:profiles(id, full_name, email, phone, role, avatar_url, is_verified, created_at, updated_at)'
+          )
           .in('id', ids);
 
         if (fullListings) {
-          return fullListings
+          const result = fullListings
             .map((l: any) => mapListingToDonation(l, lat, lng))
             .sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+          nearbyCache.set(cacheKey, { data: result, expiresAt: Date.now() + NEARBY_CACHE_TTL_MS });
+          return result;
         }
       }
 
-      // Fallback: bounding box query
+      // Fallback: bounding box query with narrow column selection
       const latDelta = radiusKm / 111;
       const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
 
       const { data, error } = await supabase
         .from('food_listings')
-        .select('*, donor:profiles(*)')
+        .select(
+          'id, donor_id, title, description, category, food_type, servings, available_servings, ' +
+          'image_url, available_from, available_until, latitude, longitude, pickup_address, city, ' +
+          'status, created_at, updated_at, ' +
+          'donor:profiles(id, full_name, email, phone, role, avatar_url, is_verified, created_at, updated_at)'
+        )
         .in('status', ['available', 'partially_reserved'])
         .gt('available_servings', 0)
         .gt('available_until', new Date().toISOString())
@@ -208,13 +237,20 @@ export const DonationsService = {
 
       if (error || !data) return [];
 
-      return data
+      const result = data
         .map((l: any) => mapListingToDonation(l, lat, lng))
         .sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+      nearbyCache.set(cacheKey, { data: result, expiresAt: Date.now() + NEARBY_CACHE_TTL_MS });
+      return result;
     } catch (e) {
       console.warn('[ShareBite] getNearbyDonations error:', e);
-      return [];
+      return cached?.data ?? []; // return stale cache on error if available
     }
+  },
+
+  // ── Invalidate nearby cache (call after creating a donation) ─────────────────
+  invalidateNearbyCache(): void {
+    nearbyCache.clear();
   },
 
   // ── My donations (donor view) ────────────────────────────────────────────────

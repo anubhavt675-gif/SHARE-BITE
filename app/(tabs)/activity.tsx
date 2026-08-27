@@ -1,6 +1,14 @@
-// ShareBite — Activity Screen
+// ShareBite — Activity Screen (Performance Optimized)
+// Key changes:
+//  - ActivityItem wrapped in React.memo (prevents re-renders on parent state changes)
+//  - Date computations inside ActivityItem moved to useMemo
+//  - loadData wrapped in useCallback with proper dependency
+//  - isMounted ref prevents setState after unmount (memory leak fix)
+//  - filtered computed with useMemo (no useEffect + setState)
+//  - renderItem and onRefresh wrapped in useCallback
+//  - FlatList tuned: initialNumToRender, maxToRenderPerBatch, windowSize, removeClippedSubviews
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -43,13 +51,27 @@ function getStatusColor(status: string): string {
   return Colors.textTertiary;
 }
 
-function ActivityItem({ donation, onPress }: { donation: Donation; onPress: () => void }) {
+// ── ActivityItem — memoized to prevent re-renders when parent filter/state changes ──
+const ActivityItem = React.memo(function ActivityItem({
+  donation,
+  onPress,
+}: {
+  donation: Donation;
+  onPress: () => void;
+}) {
   const { theme, isDark } = useTheme();
-  const category = FOOD_CATEGORIES.find(c => c.key === donation.food.category);
-  const date = new Date(donation.createdAt);
-  const dateStr = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  const timeStr = date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-  const statusColor = getStatusColor(donation.status);
+
+  // Memoize date computations — avoids creating Date objects on every render
+  const { category, dateStr, timeStr, statusColor } = useMemo(() => {
+    const cat = FOOD_CATEGORIES.find(c => c.key === donation.food.category);
+    const d = new Date(donation.createdAt);
+    return {
+      category: cat,
+      dateStr: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      timeStr: d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }),
+      statusColor: getStatusColor(donation.status),
+    };
+  }, [donation.food.category, donation.createdAt, donation.status]);
 
   return (
     <TouchableOpacity
@@ -106,7 +128,7 @@ function ActivityItem({ donation, onPress }: { donation: Donation; onPress: () =
       <Ionicons name="chevron-forward" size={14} color={theme.colors.textTertiary} />
     </TouchableOpacity>
   );
-}
+});
 
 export default function ActivityScreen() {
   const { user } = useAuth();
@@ -116,29 +138,56 @@ export default function ActivityScreen() {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const isMounted = useRef(true);
 
-  const loadData = async () => {
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  const loadData = useCallback(async () => {
     try {
       const dons = isNGO
         ? await DonationsService.getClaimedDonations(user?.id ?? '')
         : await DonationsService.getMyDonations(user?.id ?? '');
-      setDonations(dons);
+      if (isMounted.current) setDonations(dons);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, [isNGO, user?.id]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = donations.filter(d => {
+  // Compute filtered list with useMemo — no extra state, no useEffect
+  const filtered = useMemo(() => donations.filter(d => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'available') return d.status === 'AVAILABLE' || d.status === 'CLAIMED';
     if (activeFilter === 'claimed') return d.status === 'CLAIMED' || d.status === 'PICKUP_CONFIRMED';
     if (activeFilter === 'completed') return d.status === 'COMPLETED' || d.status === 'PICKED_UP';
     if (activeFilter === 'expired') return d.status === 'EXPIRED' || d.status === 'CANCELLED';
     return true;
-  });
+  }), [donations, activeFilter]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData();
+  }, [loadData]);
+
+  const renderItem = useCallback(({ item }: { item: Donation }) => (
+    <ActivityItem
+      donation={item}
+      onPress={() =>
+        isNGO
+          ? router.push(`/ngo/${item.id}`)
+          : router.push(`/donor/${item.id}`)
+      }
+    />
+  ), [isNGO]);
+
+  const keyExtractor = useCallback((item: Donation) => item.id, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -196,27 +245,23 @@ export default function ActivityScreen() {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); loadData(); }}
+              onRefresh={onRefresh}
               tintColor={Colors.primary}
               colors={[Colors.primary]}
             />
           }
-          renderItem={({ item }) => (
-            <ActivityItem
-              donation={item}
-              onPress={() =>
-                isNGO
-                  ? router.push(`/ngo/${item.id}`)
-                  : router.push(`/donor/${item.id}`)
-              }
-            />
-          )}
+          renderItem={renderItem}
+          // ── FlatList performance tuning ──
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </SafeAreaView>

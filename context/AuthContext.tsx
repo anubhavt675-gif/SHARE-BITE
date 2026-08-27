@@ -1,6 +1,18 @@
-// ShareBite — Auth Context
+// ShareBite — Auth Context (Performance Optimized)
+// - All action functions wrapped in useCallback (stable references)
+// - Context value wrapped in useMemo to prevent re-renders in all consumers
+//   when unrelated state changes
 
-import React, { createContext, useContext, useEffect, useReducer, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  useCallback,
+  useMemo,
+  useRef,
+  ReactNode,
+} from 'react';
 import { User, UserRole } from '../types';
 import { AuthService } from '../services/auth';
 
@@ -64,6 +76,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Keep a ref to current user so updateUser callback stays stable without
+  // needing `state.user` in its dependency array.
+  const userRef = useRef<User | null>(state.user);
+  userRef.current = state.user;
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -80,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  const login = async (phone: string, password: string, role: UserRole) => {
+  const login = useCallback(async (phone: string, password: string, role: UserRole) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const user = await AuthService.login(phone, password, role);
@@ -89,9 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: false });
       throw err;
     }
-  };
+  }, []);
 
-  const signup = async (data: {
+  const signup = useCallback(async (data: {
     name: string;
     phone: string;
     email: string;
@@ -107,28 +124,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: false });
       throw err;
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await AuthService.logout();
     dispatch({ type: 'LOGOUT' });
-  };
+  }, []);
 
-  const markOnboardingComplete = async () => {
+  const markOnboardingComplete = useCallback(async () => {
     await AuthService.markOnboardingComplete();
     dispatch({ type: 'SET_ONBOARDING', payload: true });
-  };
+  }, []);
 
-  const updateUser = (updates: Partial<User>) => {
-    if (state.user) {
-      dispatch({ type: 'SET_USER', payload: { ...state.user, ...updates } });
+  // Reads current user via ref so this callback never needs to be recreated
+  const updateUser = useCallback((updates: Partial<User>) => {
+    if (userRef.current) {
+      dispatch({ type: 'SET_USER', payload: { ...userRef.current, ...updates } });
     }
-  };
+  }, []);
+
+  // Stable value object — only re-creates when actual state or stable fns change
+  const value = useMemo<AuthContextValue>(() => ({
+    ...state,
+    login,
+    signup,
+    logout,
+    markOnboardingComplete,
+    updateUser,
+  }), [state, login, signup, logout, markOnboardingComplete, updateUser]);
 
   return (
-    <AuthContext.Provider
-      value={{ ...state, login, signup, logout, markOnboardingComplete, updateUser }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

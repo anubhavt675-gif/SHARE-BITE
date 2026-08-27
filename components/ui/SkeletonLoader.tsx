@@ -1,19 +1,16 @@
-// ShareBite — SkeletonLoader Component
+// ShareBite — SkeletonLoader Component (Performance Optimized)
+// Uses a single shared Animated.Value via React Context to drive all visible
+// skeletons with ONE animation loop instead of N loops (N = number of skeletons).
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { Radius, Spacing } from '../../constants/spacing';
 
-interface SkeletonProps {
-  width?: number | string;
-  height?: number;
-  borderRadius?: number;
-  style?: ViewStyle;
-}
+// ── Shared shimmer context ────────────────────────────────────────────────────
+const ShimmerContext = createContext<Animated.Value | null>(null);
 
-export function Skeleton({ width = '100%', height = 16, borderRadius = Radius.xs, style }: SkeletonProps) {
-  const { theme } = useTheme();
+export function ShimmerProvider({ children }: { children: ReactNode }) {
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -26,6 +23,41 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = Radius.xs
     animation.start();
     return () => animation.stop();
   }, [shimmer]);
+
+  return (
+    <ShimmerContext.Provider value={shimmer}>
+      {children}
+    </ShimmerContext.Provider>
+  );
+}
+
+// ── Individual skeleton block ─────────────────────────────────────────────────
+interface SkeletonProps {
+  width?: number | string;
+  height?: number;
+  borderRadius?: number;
+  style?: ViewStyle;
+}
+
+export function Skeleton({ width = '100%', height = 16, borderRadius = Radius.xs, style }: SkeletonProps) {
+  const { theme } = useTheme();
+  // Prefer shared shimmer; fall back to a local one if used outside ShimmerProvider
+  const sharedShimmer = useContext(ShimmerContext);
+  const localShimmer = useRef(new Animated.Value(0)).current;
+  const shimmer = sharedShimmer ?? localShimmer;
+
+  // Start local animation only when no shared provider is present
+  useEffect(() => {
+    if (sharedShimmer) return; // shared provider handles it
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(localShimmer, { toValue: 1, duration: 850, useNativeDriver: true }),
+        Animated.timing(localShimmer, { toValue: 0, duration: 850, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [sharedShimmer, localShimmer]);
 
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.85] });
 
@@ -45,7 +77,7 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = Radius.xs
   );
 }
 
-// Matches the actual DonationCard layout (horizontal row)
+// ── DonationCard skeleton (matches actual DonationCard horizontal layout) ─────
 export function DonationCardSkeleton() {
   const { theme } = useTheme();
   return (

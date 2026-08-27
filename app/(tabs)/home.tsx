@@ -1,6 +1,6 @@
 // ShareBite — Home Screen (Role-aware: Donor + NGO)
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -63,6 +63,8 @@ function DonorHome() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const onRefresh = useCallback(() => { setRefreshing(true); loadData(); }, [loadData]);
+
   return (
     <ScrollView
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
@@ -71,7 +73,7 @@ function DonorHome() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); loadData(); }}
+          onRefresh={onRefresh}
           tintColor={Colors.primary}
           colors={[Colors.primary]}
         />
@@ -120,7 +122,7 @@ function DonorHome() {
             </View>
             <View style={styles.heroImgWrap}>
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400' }}
+                source={{ uri: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=200' }}
                 style={styles.heroThumb}
                 resizeMode="cover"
               />
@@ -284,6 +286,8 @@ function NGOHome() {
   const latRef = useRef(28.6139);
   const lngRef = useRef(77.2090);
 
+  const lastRealtimeFetch = useRef(0);
+
   const loadData = useCallback(async () => {
     try {
       const [loc, unread] = await Promise.all([
@@ -303,7 +307,7 @@ function NGOHome() {
     }
   }, [user?.id]);
 
-  // Realtime subscription — prepend new food listings automatically
+  // Realtime subscription — throttled to max once per 5 seconds
   useEffect(() => {
     const channel = supabase
       .channel('home-food-listings')
@@ -311,6 +315,9 @@ function NGOHome() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'food_listings' },
         async () => {
+          const now = Date.now();
+          if (now - lastRealtimeFetch.current < 5000) return;
+          lastRealtimeFetch.current = now;
           const dons = await DonationsService.getNearbyDonations(latRef.current, lngRef.current);
           setDonations(dons);
         },
@@ -321,9 +328,21 @@ function NGOHome() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const availableCount = donations.filter(d => d.status === 'AVAILABLE').length;
-  const urgentCount = donations.filter(d => d.freshnessStatus === 'URGENT').length;
-  const totalServings = donations.reduce((acc, d) => acc + d.servings, 0);
+  const onRefresh = useCallback(() => { setRefreshing(true); loadData(); }, [loadData]);
+
+  // Memoize derived stats — avoid recalculating on every render
+  const availableCount = useMemo(
+    () => donations.filter(d => d.status === 'AVAILABLE').length,
+    [donations],
+  );
+  const urgentCount = useMemo(
+    () => donations.filter(d => d.freshnessStatus === 'URGENT').length,
+    [donations],
+  );
+  const totalServings = useMemo(
+    () => donations.reduce((acc, d) => acc + d.servings, 0),
+    [donations],
+  );
 
   return (
     <ScrollView
@@ -333,7 +352,7 @@ function NGOHome() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); loadData(); }}
+          onRefresh={onRefresh}
           tintColor={Colors.primary}
           colors={[Colors.primary]}
         />
@@ -509,9 +528,9 @@ function NGOHome() {
   );
 }
 
-// ─── Community Map Card ───────────────────────────────────────────────────────
+// ─── Community Map Card (memoized — static SVG, never needs to re-render) ─────
 
-function CommunityMapCard() {
+const CommunityMapCard = React.memo(function CommunityMapCard() {
   const { theme } = useTheme();
   return (
     <Card style={styles.mapCard} padding={0} variant="elevated">
@@ -574,7 +593,7 @@ function CommunityMapCard() {
       </View>
     </Card>
   );
-}
+});
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 

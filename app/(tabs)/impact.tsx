@@ -1,6 +1,6 @@
 // ShareBite — Impact Dashboard Screen
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -24,25 +24,42 @@ import { Spacing, Radius, Shadow } from '../../constants/spacing';
 
 const { width } = Dimensions.get('window');
 
-// ── Animated editorial number ─────────────────────────────────────────────────
+// ── Animated editorial number ────────────────────────────────────────────────
+// Uses a pure JS interval (no Animated.Value with useNativeDriver:false) so the
+// native animation thread is never blocked by these counting animations.
 function AnimatedNumber({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const animValue = useRef(new Animated.Value(0)).current;
   const [displayValue, setDisplayValue] = useState(0);
+  const frameRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRef = useRef<number>(0);
+  const startValRef = useRef<number>(0);
+  const DURATION = 1100;
 
   useEffect(() => {
-    const id = animValue.addListener(({ value: v }) => setDisplayValue(Math.round(v)));
-    Animated.timing(animValue, {
-      toValue: value,
-      duration: 1100,
-      useNativeDriver: false,
-    }).start();
-    return () => animValue.removeListener(id);
+    if (frameRef.current) clearTimeout(frameRef.current);
+    startRef.current = Date.now();
+    startValRef.current = displayValue;
+
+    const tick = () => {
+      const elapsed = Date.now() - startRef.current;
+      const progress = Math.min(elapsed / DURATION, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValRef.current + (value - startValRef.current) * eased);
+      setDisplayValue(current);
+      if (progress < 1) {
+        frameRef.current = setTimeout(tick, 16); // ~60fps
+      }
+    };
+    tick();
+    return () => { if (frameRef.current) clearTimeout(frameRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return <>{displayValue.toLocaleString()}{suffix}</>;
 }
 
-// ── Metric card ───────────────────────────────────────────────────────────────
+
+// ── Metric card (memoized — only re-renders when its own props change) ──────────
 interface MetricProps {
   iconName: string;
   title: string;
@@ -52,7 +69,7 @@ interface MetricProps {
   accentColor: string;
 }
 
-function MetricCard({ iconName, title, value, suffix, subtitle, accentColor }: MetricProps) {
+const MetricCard = memo(function MetricCard({ iconName, title, value, suffix, subtitle, accentColor }: MetricProps) {
   const { theme, isDark } = useTheme();
   return (
     <Card style={[styles.metricCard, isDark ? Shadow.dark : Shadow.sm]} padding={Spacing.base}>
@@ -68,10 +85,10 @@ function MetricCard({ iconName, title, value, suffix, subtitle, accentColor }: M
       )}
     </Card>
   );
-}
+});
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
-function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+const ProgressBar = memo(function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const { theme } = useTheme();
   const animWidth = useRef(new Animated.Value(0)).current;
   const progress = Math.min(value / max, 1);
@@ -97,7 +114,7 @@ function ProgressBar({ label, value, max, color }: { label: string; value: numbe
       </View>
     </View>
   );
-}
+});
 
 // ── Milestone badge ───────────────────────────────────────────────────────────
 function MilestoneBadge({ title, desc, earned }: { title: string; desc: string; earned: boolean }) {

@@ -1,6 +1,10 @@
-// ShareBite — DonationCard Component
+// ShareBite — DonationCard Component (Performance Optimized)
+// - Wrapped in React.memo to prevent re-renders when parent state changes
+//   but this card's own props haven't changed
+// - formatPickupTime memoized per expiresAt value
+// - categoryInfo lookup memoized
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,14 +37,24 @@ function formatPickupTime(expiresAt: string): string {
   });
 }
 
-export function DonationCard({
+function DonationCardComponent({
   donation,
   onPress,
   onClaim,
   showDistance = true,
 }: DonationCardProps) {
   const { theme, isDark } = useTheme();
-  const categoryInfo = FOOD_CATEGORIES.find(c => c.key === donation.food.category);
+
+  // Memoize expensive lookups and derivations
+  const categoryInfo = useMemo(
+    () => FOOD_CATEGORIES.find(c => c.key === donation.food.category),
+    [donation.food.category],
+  );
+
+  const pickupTime = useMemo(
+    () => formatPickupTime(donation.expiresAt),
+    [donation.expiresAt],
+  );
 
   const isUrgent = donation.freshnessStatus === 'URGENT';
   const isExpired =
@@ -165,7 +179,7 @@ export function DonationCard({
               { color: isUrgent ? Colors.error : theme.colors.textTertiary },
             ]}
           >
-            Until {formatPickupTime(donation.expiresAt)}
+            Until {pickupTime}
           </Text>
         </View>
 
@@ -201,6 +215,10 @@ export function DonationCard({
     </TouchableOpacity>
   );
 }
+
+// React.memo prevents re-renders when the parent re-renders but props are unchanged.
+// This is critical because DonationCard is rendered in FlatLists across multiple screens.
+export const DonationCard = React.memo(DonationCardComponent);
 
 const styles = StyleSheet.create({
   card: {

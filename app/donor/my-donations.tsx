@@ -1,6 +1,10 @@
-// ShareBite — Donor: My Donations Screen
+// ShareBite — Donor: My Donations Screen (Performance Optimized)
+// Key changes:
+//  - load wrapped in useCallback with [user?.id] dependency
+//  - isMounted ref prevents setState after unmount (memory leak fix)
+//  - FlatList tuned: initialNumToRender, maxToRenderPerBatch, windowSize, removeClippedSubviews
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,15 +34,42 @@ export default function MyDonationsScreen() {
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const isMounted = useRef(true);
 
-  const load = async () => {
-    const dons = await DonationsService.getMyDonations(user?.id ?? '');
-    setDonations(dons);
-    setLoading(false);
-    setRefreshing(false);
-  };
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  // Stable load function — won't be recreated unless user.id changes
+  const load = useCallback(async () => {
+    try {
+      const dons = await DonationsService.getMyDonations(user?.id ?? '');
+      if (isMounted.current) setDonations(dons);
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load();
+  }, [load]);
+
+  const renderItem = useCallback(({ item }: { item: Donation }) => (
+    <DonationCard
+      donation={item}
+      onPress={() => router.push(`/donor/${item.id}`)}
+      showDistance={false}
+    />
+  ), []);
+
+  const keyExtractor = useCallback((item: Donation) => item.id, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -69,13 +100,13 @@ export default function MyDonationsScreen() {
       ) : (
         <FlatList
           data={donations}
-          keyExtractor={item => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(); }}
+              onRefresh={onRefresh}
               tintColor={Colors.primary}
               colors={[Colors.primary]}
             />
@@ -85,13 +116,12 @@ export default function MyDonationsScreen() {
               {donations.length} donation{donations.length !== 1 ? 's' : ''}
             </Text>
           }
-          renderItem={({ item }) => (
-            <DonationCard
-              donation={item}
-              onPress={() => router.push(`/donor/${item.id}`)}
-              showDistance={false}
-            />
-          )}
+          renderItem={renderItem}
+          // ── FlatList performance tuning ──
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </SafeAreaView>
