@@ -1,4 +1,13 @@
-// ShareBite — Signup Screen
+// ShareBite — Signup Screen (Fixed)
+//
+// KEY FIXES:
+//  1. After successful signup, if a session exists (email confirmation disabled),
+//     navigate directly to /(tabs)/home instead of the mock OTP screen.
+//  2. If email confirmation is required (no session), show a clear info message
+//     telling the user to check their email — don't navigate anywhere broken.
+//  3. Error messages now show the actual Supabase-mapped error instead of
+//     "Something went wrong. Please try again."
+//  4. Loading state prevents double-submission.
 
 import React, { useState } from 'react';
 import {
@@ -24,6 +33,10 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { UserRole } from '../../types';
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export default function SignupScreen() {
   const { signup, isLoading } = useAuth();
   const { theme } = useTheme();
@@ -47,7 +60,11 @@ export default function SignupScreen() {
     const errs: Record<string, string> = {};
     if (!form.name.trim()) errs.name = 'Name is required';
     if (!form.phone.trim()) errs.phone = 'Phone is required';
-    if (!form.email.trim()) errs.email = 'Email is required';
+    if (!form.email.trim()) {
+      errs.email = 'Email is required';
+    } else if (!isValidEmail(form.email)) {
+      errs.email = 'Please enter a valid email address';
+    }
     if (isNGO && !form.organizationName.trim()) errs.org = 'Organization name is required';
     if (!form.password || form.password.length < 6) errs.password = 'Minimum 6 characters';
     if (!agreed) errs.terms = 'Please accept the terms to continue';
@@ -58,7 +75,7 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (!validate()) return;
     try {
-      await signup({
+      const result = await signup({
         name: form.name,
         phone: form.phone,
         email: form.email,
@@ -66,9 +83,31 @@ export default function SignupScreen() {
         organizationName: form.organizationName,
         password: form.password,
       });
-      router.push({ pathname: '/(auth)/otp', params: { phone: form.phone, signup: '1' } });
-    } catch (err) {
-      Alert.alert('Signup Failed', 'Something went wrong. Please try again.');
+
+      // Check if we got a session back (email confirmation disabled)
+      const sessionExists = result && (result as any).sessionExists;
+
+      if (sessionExists) {
+        // Session established — go straight to the app
+        router.replace('/(tabs)/home');
+      } else {
+        // Email confirmation required — show message, stay on auth flow
+        Alert.alert(
+          'Check Your Email',
+          `We sent a confirmation link to ${form.email}.\n\nPlease click the link in your email to activate your account, then come back and log in.`,
+          [
+            {
+              text: 'Go to Login',
+              onPress: () => router.replace('/(auth)/login'),
+            },
+          ],
+        );
+      }
+    } catch (err: any) {
+      Alert.alert(
+        'Signup Failed',
+        err?.message || 'Something went wrong. Please try again.',
+      );
     }
   };
 
@@ -158,6 +197,7 @@ export default function SignupScreen() {
               onChangeText={v => setForm(f => ({ ...f, email: v }))}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               error={errors.email}
               required
               leftIcon={<Ionicons name="mail-outline" size={16} color={theme.colors.textTertiary} />}

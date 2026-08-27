@@ -332,11 +332,21 @@ security definer
 set search_path = public
 language plpgsql as $$
 begin
-  insert into public.profiles (id, full_name, email)
+  insert into public.profiles (id, full_name, email, phone, role)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', ''),
-    new.email
+    -- Try 'full_name' first (what signup() sends), fall back to 'name'
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+      nullif(trim(new.raw_user_meta_data->>'name'), ''),
+      ''
+    ),
+    new.email,
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    coalesce(
+      (new.raw_user_meta_data->>'role')::public.user_role,
+      'donor'::public.user_role
+    )
   )
   on conflict (id) do nothing;
   return new;
@@ -515,6 +525,14 @@ alter table public.reports       enable row level security;
 drop policy if exists "profiles_select_authenticated" on public.profiles;
 create policy "profiles_select_authenticated" on public.profiles
   for select to authenticated using (true);
+
+-- Allow authenticated users to insert their OWN profile row.
+-- This is the safety net for the client-side upsert in signup(),
+-- in case the DB trigger runs after the client tries to set role/phone.
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own" on public.profiles
+  for insert to authenticated
+  with check (id = auth.uid());
 
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles

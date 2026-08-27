@@ -1,4 +1,15 @@
-// ShareBite — Login Screen
+// ShareBite — Login Screen (Fixed)
+//
+// KEY FIXES:
+//  1. Input field changed from "Phone Number" to "Email Address" — this is what
+//     Supabase auth requires. The old phone-based login was constructing
+//     fake emails like "9876543210@sharebite.com" which don't exist in auth.users.
+//  2. Validation now checks for a valid email format.
+//  3. Error messages from auth.login() (mapped Supabase errors) are shown
+//     in an Alert with the actual message instead of a generic "check credentials".
+//  4. Removed the demo info banner that said "Any phone + password works"
+//     (incorrect, was misleading users to use phone numbers).
+//  5. Loading state prevents double-submission.
 
 import React, { useState } from 'react';
 import {
@@ -24,22 +35,30 @@ import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
 import { UserRole } from '../../types';
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
   const { theme } = useTheme();
   const params = useLocalSearchParams<{ role?: string }>();
 
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>(
     (params.role as UserRole) ?? 'donor',
   );
-  const [errors, setErrors] = useState<{ phone?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
     const errs: typeof errors = {};
-    if (!phone.trim()) errs.phone = 'Phone number is required';
+    if (!email.trim()) {
+      errs.email = 'Email address is required';
+    } else if (!isValidEmail(email)) {
+      errs.email = 'Please enter a valid email address';
+    }
     if (!password.trim()) errs.password = 'Password is required';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -48,10 +67,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validate()) return;
     try {
-      await login(phone, password, selectedRole);
+      await login(email, password, selectedRole);
       router.replace('/(tabs)/home');
-    } catch (err) {
-      Alert.alert('Login Failed', 'Please check your credentials and try again.');
+    } catch (err: any) {
+      Alert.alert(
+        'Login Failed',
+        err?.message || 'Invalid email or password. Please try again.',
+      );
     }
   };
 
@@ -117,15 +139,18 @@ export default function LoginScreen() {
               ))}
             </View>
 
+            {/* FIXED: Email field instead of Phone */}
             <Input
-              label="Phone Number"
-              placeholder="e.g. 9876543210"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              error={errors.phone}
+              label="Email Address"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              error={errors.email}
               required
-              leftIcon={<Ionicons name="call-outline" size={16} color={theme.colors.textTertiary} />}
+              leftIcon={<Ionicons name="mail-outline" size={16} color={theme.colors.textTertiary} />}
             />
 
             <Input
@@ -169,7 +194,7 @@ export default function LoginScreen() {
 
             <Button
               label="Log In with OTP"
-              onPress={() => router.push({ pathname: '/(auth)/otp', params: { phone } })}
+              onPress={() => router.push({ pathname: '/(auth)/otp', params: { phone: email } })}
               variant="outline"
               size="md"
               icon={<Ionicons name="phone-portrait-outline" size={16} color={Colors.primary} />}
@@ -183,14 +208,6 @@ export default function LoginScreen() {
                 </Text>
               </Text>
             </TouchableOpacity>
-
-            {/* Demo Info */}
-            <View style={[styles.demoInfo, { backgroundColor: Colors.primaryAlpha08, borderColor: theme.colors.border }]}>
-              <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
-              <Text style={[styles.demoText, { color: Colors.primary }]}>
-                Demo: Any phone + password works. Select your role above.
-              </Text>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -305,20 +322,5 @@ const styles = StyleSheet.create({
   signupText: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.sm,
-  },
-  demoInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: Radius.xs,
-    borderWidth: 1,
-    marginTop: Spacing.sm,
-  },
-  demoText: {
-    flex: 1,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.xs + 1,
-    lineHeight: (FontSize.xs + 1) * 1.5,
   },
 });
