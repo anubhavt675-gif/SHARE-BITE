@@ -20,6 +20,7 @@ import { DonationCardSkeleton } from '../../components/ui/SkeletonLoader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { DonationsService } from '../../services/donations';
+import { LocationService } from '../../services/location';
 import { Donation } from '../../types';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
@@ -49,7 +50,10 @@ export default function DiscoverScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const dons = await DonationsService.getNearbyDonations(28.6139, 77.2090);
+      const loc = await LocationService.getCurrentLocation();
+      const lat = loc?.latitude ?? 28.6139;
+      const lng = loc?.longitude ?? 77.2090;
+      const dons = await DonationsService.getNearbyDonations(lat, lng);
       setDonations(dons);
       setFiltered(dons);
     } finally {

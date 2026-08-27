@@ -16,7 +16,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { AppNotification } from '../../types';
-import { MOCK_NOTIFICATIONS } from '../../services/mock-data';
+import { useAuth } from '../../context/AuthContext';
+import { NotificationsService } from '../../services/notifications';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing, Radius } from '../../constants/spacing';
@@ -33,10 +34,18 @@ function timeAgo(iso: string): string {
 
 // Icon and color for each notification type
 const NOTIF_CONFIG: Record<string, { icon: string; color: string }> = {
-  new_donation:         { icon: 'restaurant-outline',      color: Colors.primary  },
-  donation_claimed:     { icon: 'checkmark-circle-outline', color: Colors.accent   },
-  pickup_confirmed:     { icon: 'bicycle-outline',          color: Colors.primary  },
-  donation_completed:   { icon: 'ribbon-outline',           color: Colors.accent   },
+  RESERVATION_CREATED:  { icon: 'restaurant-outline',       color: Colors.primary  },
+  RESERVATION_CONFIRMED:{ icon: 'checkmark-circle-outline',  color: Colors.accent   },
+  PICKUP_READY:         { icon: 'bicycle-outline',           color: Colors.primary  },
+  PICKUP_COMPLETED:     { icon: 'ribbon-outline',            color: Colors.accent   },
+  DONATION_CREATED:     { icon: 'restaurant-outline',        color: Colors.primary  },
+  DONATION_COMPLETED:   { icon: 'ribbon-outline',            color: Colors.accent   },
+  PARTNER_VERIFIED:     { icon: 'shield-checkmark-outline',  color: Colors.accent   },
+  SYSTEM:               { icon: 'star-outline',              color: Colors.yellow   },
+  new_donation:         { icon: 'restaurant-outline',        color: Colors.primary  },
+  donation_claimed:     { icon: 'checkmark-circle-outline',  color: Colors.accent   },
+  pickup_confirmed:     { icon: 'bicycle-outline',           color: Colors.primary  },
+  donation_completed:   { icon: 'ribbon-outline',            color: Colors.accent   },
   donation_expiring:    { icon: 'time-outline',             color: Colors.error    },
   verification_update:  { icon: 'shield-checkmark-outline', color: Colors.accent   },
   impact_milestone:     { icon: 'star-outline',             color: Colors.yellow   },
@@ -97,24 +106,46 @@ function NotificationItem({
 }
 
 export default function NotificationsScreen() {
+  const { user } = useAuth();
   const { theme } = useTheme();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = () => {
-    setNotifications(MOCK_NOTIFICATIONS);
-    setRefreshing(false);
+  const load = async () => {
+    if (!user) return;
+    try {
+      const data = await NotificationsService.getNotifications(user.id);
+      setNotifications(data);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    if (!user) return;
+
+    const sub = NotificationsService.subscribeToNotifications(user.id, (newNotif) => {
+      setNotifications(prev => [newNotif, ...prev]);
+    });
+
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [user]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const markAllRead = () =>
+  const markAllRead = async () => {
+    if (!user) return;
     setNotifications(ns => ns.map(n => ({ ...n, isRead: true })));
+    await NotificationsService.markAllAsRead(user.id);
+  };
 
-  const markOneRead = (id: string) =>
+  const markOneRead = async (id: string) => {
     setNotifications(ns => ns.map(n => n.id === id ? { ...n, isRead: true } : n));
+    await NotificationsService.markAsRead(id);
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>

@@ -59,6 +59,8 @@ export interface User {
   name: string;
   role: UserRole;
   avatar?: string;
+  bio?: string;
+  organizationName?: string;
   location?: Location;
   verificationStatus: VerificationStatus;
   isVerified: boolean;

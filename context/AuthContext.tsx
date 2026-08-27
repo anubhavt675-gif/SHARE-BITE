@@ -52,6 +52,7 @@ interface AuthContextValue extends AuthState {
     email: string;
     role: UserRole;
     organizationName?: string;
+    password?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string;
     role: UserRole;
     organizationName?: string;
+    password?: string;
   }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {

@@ -64,6 +64,7 @@ export default function SignupScreen() {
         email: form.email,
         role,
         organizationName: form.organizationName,
+        password: form.password,
       });
       router.push({ pathname: '/(auth)/otp', params: { phone: form.phone, signup: '1' } });
     } catch (err) {
