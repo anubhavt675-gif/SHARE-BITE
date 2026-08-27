@@ -1,11 +1,17 @@
+// ShareBite — Supabase Client (single instance)
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+// Support both naming conventions
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials are missing. Check your .env file.');
+  console.warn('[ShareBite] Supabase credentials are missing. Check your .env file.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

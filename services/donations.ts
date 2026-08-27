@@ -1,9 +1,11 @@
 // ShareBite — Donations Service (Supabase-connected)
+// All status strings use lowercase to match PostgreSQL enum values in new schema.
 
 import { supabase } from '../lib/supabase';
 import { Donation, CreateDonationForm, DonationStatus } from '../types';
 
-// Helper to translate categories
+// ─── Category Mappers ─────────────────────────────────────────────────────────
+
 function toDbCategory(cat: string): string {
   const c = cat.toLowerCase();
   if (c === 'biryani') return 'Biryani';
@@ -18,7 +20,7 @@ function toDbCategory(cat: string): string {
 }
 
 function toUiCategory(cat: string): string {
-  const c = cat.toLowerCase();
+  const c = (cat || '').toLowerCase();
   if (c === 'biryani') return 'biryani';
   if (c === 'rice') return 'rice';
   if (c === 'roti') return 'roti';
@@ -30,25 +32,66 @@ function toUiCategory(cat: string): string {
   return 'other';
 }
 
+// ─── DB Status → UI Status mapper ────────────────────────────────────────────
+// The new SQL schema uses lowercase enums; the UI uses uppercase constants.
+function toUiStatus(dbStatus: string): DonationStatus {
+  const s = (dbStatus || '').toLowerCase();
+  if (s === 'available') return 'AVAILABLE';
+  if (s === 'reserved' || s === 'partially_reserved') return 'CLAIMED';
+  if (s === 'picked_up') return 'PICKED_UP';
+  if (s === 'completed') return 'COMPLETED';
+  if (s === 'expired') return 'EXPIRED';
+  if (s === 'cancelled') return 'CANCELLED';
+  // Reservation-level statuses
+  if (s === 'pending' || s === 'confirmed') return 'CLAIMED';
+  if (s === 'ready_for_pickup') return 'PICKUP_CONFIRMED';
+  return 'AVAILABLE';
+}
+
+// ─── UI Status → DB Status ───────────────────────────────────────────────────
+function toDbListingStatus(uiStatus: DonationStatus): string {
+  switch (uiStatus) {
+    case 'AVAILABLE': return 'available';
+    case 'CLAIMED': return 'reserved';
+    case 'PICKUP_CONFIRMED': return 'reserved';
+    case 'PICKED_UP': return 'picked_up';
+    case 'COMPLETED': return 'completed';
+    case 'EXPIRED': return 'expired';
+    case 'CANCELLED': return 'cancelled';
+    default: return 'available';
+  }
+}
+
+// ─── Listing → Donation mapper ────────────────────────────────────────────────
 function mapListingToDonation(listing: any, userLat?: number, userLng?: number): Donation {
-  let distanceKm = undefined;
-  if (userLat !== undefined && userLng !== undefined && listing.latitude && listing.longitude) {
-    const R = 6371; // Earth radius in km
-    const dLat = (listing.latitude - userLat) * Math.PI / 180;
-    const dLon = (listing.longitude - userLng) * Math.PI / 180;
+  let distanceKm: number | undefined;
+  if (
+    userLat !== undefined &&
+    userLng !== undefined &&
+    listing.latitude &&
+    listing.longitude
+  ) {
+    const R = 6371;
+    const dLat = (listing.latitude - userLat) * (Math.PI / 180);
+    const dLon = (listing.longitude - userLng) * (Math.PI / 180);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(userLat * Math.PI / 180) * Math.cos(listing.latitude * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(userLat * (Math.PI / 180)) *
+        Math.cos(listing.latitude * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     distanceKm = Math.round(R * c * 10) / 10;
   }
 
-  const hoursLeft = (new Date(listing.available_until).getTime() - Date.now()) / 3600000;
+  const hoursLeft =
+    (new Date(listing.available_until).getTime() - Date.now()) / 3_600_000;
   let freshnessStatus: 'FRESH' | 'PICKUP_SOON' | 'URGENT' | 'EXPIRED' = 'FRESH';
   if (hoursLeft <= 0) freshnessStatus = 'EXPIRED';
   else if (hoursLeft <= 2) freshnessStatus = 'URGENT';
   else if (hoursLeft <= 4) freshnessStatus = 'PICKUP_SOON';
+
+  const uiStatus = toUiStatus(listing.status);
 
   return {
     id: listing.id,
@@ -64,31 +107,31 @@ function mapListingToDonation(listing: any, userLat?: number, userLng?: number):
       verificationStatus: listing.donor?.is_verified ? 'verified' : 'pending',
       createdAt: listing.donor?.created_at || listing.created_at,
       updatedAt: listing.donor?.updated_at || listing.updated_at,
-      totalDonations: 0,
+      totalDonations: listing.donor?.total_donations || 0,
       totalMealsSaved: 0,
       rating: 5.0,
     },
     food: {
       category: toUiCategory(listing.category) as any,
       name: listing.title,
-      isVegetarian: !listing.description?.toLowerCase().includes('non-veg'),
+      isVegetarian: listing.food_type === 'veg' || listing.food_type === 'vegan',
       description: listing.description || '',
     },
     quantity: listing.servings,
-    servings: listing.servings,
+    servings: listing.available_servings ?? listing.servings,
     imageUrl: listing.image_url || undefined,
     preparedAt: listing.available_from || listing.created_at,
     expiresAt: listing.available_until,
     pickupLocation: {
       latitude: listing.latitude || 28.6139,
-      longitude: listing.longitude || 77.2090,
-      address: listing.pickup_address || 'Karol Bagh, New Delhi',
+      longitude: listing.longitude || 77.209,
+      address: listing.pickup_address || 'New Delhi',
       city: listing.city || 'New Delhi',
     },
     packagingType: 'container',
-    status: listing.status as DonationStatus,
+    status: uiStatus,
     freshnessStatus,
-    isSafeConfirmed: listing.is_safe_confirmed ?? true,
+    isSafeConfirmed: true,
     notes: listing.description,
     createdAt: listing.created_at,
     updatedAt: listing.updated_at,
@@ -96,62 +139,85 @@ function mapListingToDonation(listing: any, userLat?: number, userLng?: number):
   };
 }
 
+// ─── Service ──────────────────────────────────────────────────────────────────
 export const DonationsService = {
+  // ── Image upload ────────────────────────────────────────────────────────────
   async uploadFoodImage(imageUri: string): Promise<string | null> {
     try {
-      if (imageUri.startsWith('http')) {
-        return imageUri; // Already uploaded / remote URL
-      }
+      if (imageUri.startsWith('http')) return imageUri;
       const response = await fetch(imageUri);
       const blob = await response.blob();
       const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('food-images')
-        .upload(filename, blob, {
-          contentType: 'image/jpeg',
-        });
+        .upload(filename, blob, { contentType: 'image/jpeg' });
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('food-images')
-        .getPublicUrl(filename);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('food-images').getPublicUrl(filename);
 
       return publicUrl;
     } catch (e) {
-      console.warn('Image upload failed, using fallback:', e);
+      console.warn('[ShareBite] Image upload failed:', e);
       return null;
     }
   },
 
-  async getNearbyDonations(
-    lat: number,
-    lng: number,
-    radiusKm: number = 15,
-  ): Promise<Donation[]> {
-    const latDelta = radiusKm / 111;
-    const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+  // ── Nearby listings (uses get_nearby_food RPC when lat/lng available) ───────
+  async getNearbyDonations(lat: number, lng: number, radiusKm = 15): Promise<Donation[]> {
+    try {
+      // Try the Haversine RPC first (most accurate)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_nearby_food', {
+        p_latitude: lat,
+        p_longitude: lng,
+        p_radius_km: radiusKm,
+      });
 
-    const { data, error } = await supabase
-      .from('food_listings')
-      .select('*, donor:profiles(*)')
-      .eq('status', 'AVAILABLE')
-      .gt('available_until', new Date().toISOString())
-      .gte('latitude', lat - latDelta)
-      .lte('latitude', lat + latDelta)
-      .gte('longitude', lng - lngDelta)
-      .lte('longitude', lng + lngDelta);
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        // RPC returns flattened rows without donor join — fetch donors separately
+        const ids: string[] = rpcData.map((r: any) => r.id);
+        const { data: fullListings } = await supabase
+          .from('food_listings')
+          .select('*, donor:profiles(*)')
+          .in('id', ids);
 
-    if (error || !data) {
+        if (fullListings) {
+          return fullListings
+            .map((l: any) => mapListingToDonation(l, lat, lng))
+            .sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+        }
+      }
+
+      // Fallback: bounding box query
+      const latDelta = radiusKm / 111;
+      const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+
+      const { data, error } = await supabase
+        .from('food_listings')
+        .select('*, donor:profiles(*)')
+        .in('status', ['available', 'partially_reserved'])
+        .gt('available_servings', 0)
+        .gt('available_until', new Date().toISOString())
+        .gte('latitude', lat - latDelta)
+        .lte('latitude', lat + latDelta)
+        .gte('longitude', lng - lngDelta)
+        .lte('longitude', lng + lngDelta);
+
+      if (error || !data) return [];
+
+      return data
+        .map((l: any) => mapListingToDonation(l, lat, lng))
+        .sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
+    } catch (e) {
+      console.warn('[ShareBite] getNearbyDonations error:', e);
       return [];
     }
-
-    return data
-      .map(listing => mapListingToDonation(listing, lat, lng))
-      .sort((a, b) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99));
   },
 
+  // ── My donations (donor view) ────────────────────────────────────────────────
   async getMyDonations(donorId: string): Promise<Donation[]> {
     const { data, error } = await supabase
       .from('food_listings')
@@ -160,9 +226,10 @@ export const DonationsService = {
       .order('created_at', { ascending: false });
 
     if (error || !data) return [];
-    return data.map(listing => mapListingToDonation(listing));
+    return data.map((l: any) => mapListingToDonation(l));
   },
 
+  // ── Single listing by id ────────────────────────────────────────────────────
   async getDonationById(id: string): Promise<Donation | null> {
     const { data, error } = await supabase
       .from('food_listings')
@@ -174,17 +241,18 @@ export const DonationsService = {
     return mapListingToDonation(data);
   },
 
-  async createDonation(
-    donorId: string,
-    form: CreateDonationForm,
-  ): Promise<Donation> {
-    // 1. Upload photo if present
-    let publicUrl = null;
+  // ── Create donation ─────────────────────────────────────────────────────────
+  async createDonation(donorId: string, form: CreateDonationForm): Promise<Donation> {
+    // 1. Upload image
+    let publicUrl: string | null = null;
     if (form.imageUri) {
       publicUrl = await this.uploadFoodImage(form.imageUri);
     }
 
-    // 2. Insert into food_listings
+    // 2. Determine food_type
+    const foodType = form.isVegetarian ? 'veg' : 'non_veg';
+
+    // 3. Insert food_listing (lowercase status = new schema)
     const { data: listing, error: listingErr } = await supabase
       .from('food_listings')
       .insert({
@@ -192,15 +260,18 @@ export const DonationsService = {
         title: form.name,
         description: form.description || '',
         category: toDbCategory(form.category || 'other'),
+        food_type: foodType,
         servings: form.servings,
         available_servings: form.servings,
         image_url: publicUrl,
         pickup_address: form.location?.address || '',
-        latitude: form.location?.latitude || 28.6139,
-        longitude: form.location?.longitude || 77.2090,
+        city: form.location?.city || '',
+        latitude: form.location?.latitude || null,
+        longitude: form.location?.longitude || null,
         available_from: form.preparedAt.toISOString(),
         available_until: form.expiresAt.toISOString(),
-        status: 'AVAILABLE',
+        status: 'available',        // ← lowercase enum
+        is_urgent: false,
       })
       .select('*, donor:profiles(*)')
       .single();
@@ -209,81 +280,117 @@ export const DonationsService = {
       throw listingErr || new Error('Failed to create food listing');
     }
 
-    // 3. Insert into donations history record
-    await supabase
-      .from('donations')
-      .insert({
-        food_listing_id: listing.id,
-        donor_id: donorId,
-        servings: form.servings,
-        status: 'AVAILABLE',
-      });
+    // 4. Insert donations history row
+    await supabase.from('donations').insert({
+      food_listing_id: listing.id,
+      donor_id: donorId,
+      servings: form.servings,
+      status: 'active',             // ← donations table uses text, not enum
+    });
+
+    // 5. Insert impact event for donation
+    await supabase.from('impact_events').insert({
+      user_id: donorId,
+      event_type: 'food_donated',
+      servings: form.servings,
+    });
 
     return mapListingToDonation(listing);
   },
 
-  async claimDonation(donationId: string, ngoId: string): Promise<boolean> {
-    const donation = await this.getDonationById(donationId);
-    if (!donation) return false;
-
-    // Call atomic RPC
-    const { data: resId, error } = await supabase.rpc('reserve_food_servings', {
+  // ── Reserve / Claim (uses server-side RPC) ──────────────────────────────────
+  async claimDonation(donationId: string, _ngoId: string): Promise<boolean> {
+    // Use the RPC name from new schema: reserve_food
+    const { data: resId, error } = await supabase.rpc('reserve_food', {
       p_food_listing_id: donationId,
-      p_user_id: ngoId,
-      p_servings: donation.servings,
-      p_pickup_time: donation.expiresAt,
-      p_notes: 'NGO Claimed surplus meal package',
+      p_servings: 1,               // Minimum: server checks available
+      p_notes: 'NGO food rescue reservation',
     });
 
     if (error) {
-      console.warn('RPC Reservation failed:', error);
+      console.warn('[ShareBite] reserve_food RPC failed:', error);
       return false;
     }
 
-    // Update donations history
-    await supabase
-      .from('donations')
-      .update({ status: 'CLAIMED' })
-      .eq('food_listing_id', donationId);
-
+    console.log('[ShareBite] Reservation created:', resId);
     return true;
   },
 
-  async updateDonationStatus(
-    donationId: string,
-    status: DonationStatus,
-  ): Promise<boolean> {
+  // ── Reserve with custom servings ────────────────────────────────────────────
+  async reserveFood(
+    foodListingId: string,
+    servings: number,
+    pickupTime?: string,
+    notes?: string,
+  ): Promise<string | null> {
+    const { data: reservationId, error } = await supabase.rpc('reserve_food', {
+      p_food_listing_id: foodListingId,
+      p_servings: servings,
+      p_pickup_time: pickupTime || null,
+      p_notes: notes || null,
+    });
+
+    if (error) {
+      console.warn('[ShareBite] reserve_food error:', error);
+      throw new Error(error.message || 'Reservation failed');
+    }
+
+    return reservationId as string;
+  },
+
+  // ── Update listing status ───────────────────────────────────────────────────
+  async updateDonationStatus(donationId: string, status: DonationStatus): Promise<boolean> {
+    const dbStatus = toDbListingStatus(status);
+
     const { error } = await supabase
       .from('food_listings')
-      .update({ status: status })
+      .update({ status: dbStatus })
       .eq('id', donationId);
 
     if (error) return false;
 
+    // Sync reservations and donations tables
     if (status === 'COMPLETED' || status === 'PICKED_UP') {
-      const dbStatus = status === 'COMPLETED' ? 'COMPLETED' : 'PICKED_UP';
+      const resStatus = status === 'COMPLETED' ? 'completed' : 'picked_up';
+      const donStatus = status === 'COMPLETED' ? 'completed' : 'rescued';
+
       await supabase
         .from('reservations')
-        .update({ status: dbStatus })
+        .update({ status: resStatus })
         .eq('food_listing_id', donationId);
 
       await supabase
         .from('donations')
-        .update({
-          status: dbStatus,
-          completed_at: new Date().toISOString(),
-        })
+        .update({ status: donStatus, completed_at: new Date().toISOString() })
         .eq('food_listing_id', donationId);
+
+      // Record impact event if completed
+      if (status === 'COMPLETED') {
+        const { data: listing } = await supabase
+          .from('food_listings')
+          .select('donor_id, servings')
+          .eq('id', donationId)
+          .single();
+
+        if (listing) {
+          await supabase.from('impact_events').insert({
+            user_id: listing.donor_id,
+            event_type: 'food_rescued',
+            servings: listing.servings,
+          });
+        }
+      }
     }
 
     return true;
   },
 
-  async getClaimedDonations(ngoId: string): Promise<Donation[]> {
+  // ── Claimed donations (NGO/receiver activity view) ──────────────────────────
+  async getClaimedDonations(userId: string): Promise<Donation[]> {
     const { data, error } = await supabase
       .from('reservations')
       .select('*, food_listing:food_listings(*, donor:profiles(*))')
-      .eq('user_id', ngoId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error || !data) return [];
@@ -292,9 +399,24 @@ export const DonationsService = {
       .filter((res: any) => res.food_listing)
       .map((res: any) => {
         const donation = mapListingToDonation(res.food_listing);
-        // Overlay the reservation status
-        donation.status = res.status as DonationStatus;
+        // Show reservation status, not listing status
+        donation.status = toUiStatus(res.status);
         return donation;
       });
+  },
+
+  // ── All active listings (home feed) ─────────────────────────────────────────
+  async getActiveDonations(): Promise<Donation[]> {
+    const { data, error } = await supabase
+      .from('food_listings')
+      .select('*, donor:profiles(*)')
+      .in('status', ['available', 'partially_reserved'])
+      .gt('available_servings', 0)
+      .gt('available_until', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error || !data) return [];
+    return data.map((l: any) => mapListingToDonation(l));
   },
 };

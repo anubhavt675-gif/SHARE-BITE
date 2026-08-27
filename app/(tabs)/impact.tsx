@@ -17,7 +17,7 @@ import { Card } from '../../components/ui/Card';
 import { HandDrawnSeparator } from '../../components/ui/BotanicalDetails';
 import { ImpactService } from '../../services/impact';
 import { ImpactStats } from '../../types';
-import { MOCK_COMMUNITY_IMPACT } from '../../services/mock-data';
+import { CommunityImpact } from '../../types';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing, Radius, Shadow } from '../../constants/spacing';
@@ -128,13 +128,17 @@ export default function ImpactScreen() {
   const { user } = useAuth();
   const { theme, isDark } = useTheme();
   const [impact, setImpact] = useState<ImpactStats | null>(null);
+  const [community, setCommunity] = useState<CommunityImpact | null>(null);
   const [loading, setLoading] = useState(true);
   const isNGO = user?.role === 'ngo';
-  const community = MOCK_COMMUNITY_IMPACT;
 
   useEffect(() => {
-    ImpactService.getUserImpact(user?.id ?? '', user?.role ?? 'donor').then(data => {
-      setImpact(data);
+    Promise.all([
+      ImpactService.getUserImpact(user?.id ?? '', user?.role ?? 'donor'),
+      ImpactService.getCommunityImpact(),
+    ]).then(([userImpact, communityImpact]) => {
+      setImpact(userImpact);
+      setCommunity(communityImpact);
       setLoading(false);
     });
   }, [user]);
@@ -246,9 +250,9 @@ export default function ImpactScreen() {
 
             <View style={styles.communityStats}>
               {[
-                { label: 'Active Donors', value: community.activeDonors, color: Colors.primary },
-                { label: 'Partner NGOs',  value: community.activeNGOs,   color: Colors.accent },
-                { label: 'Cities',        value: community.citiesCovered, color: Colors.textPrimary },
+                { label: 'Active Donors', value: community?.activeDonors ?? 0, color: Colors.primary },
+                { label: 'Partner NGOs',  value: community?.activeNGOs ?? 0,   color: Colors.accent },
+                { label: 'Cities',        value: community?.citiesCovered ?? 0, color: Colors.textPrimary },
               ].map(stat => (
                 <View key={stat.label} style={styles.commStat}>
                   <Text style={[styles.commStatValue, { color: stat.color }]}>
@@ -263,11 +267,11 @@ export default function ImpactScreen() {
 
             <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
 
-            <ProgressBar label="Meals this month"         value={community.thisMonthMeals}       max={20000} color={Colors.primary} />
+            <ProgressBar label="Meals this month"         value={community?.thisMonthMeals ?? 0}       max={Math.max(community?.thisMonthMeals ?? 1, 100)} color={Colors.primary} />
             <View style={{ height: Spacing.sm }} />
-            <ProgressBar label="Food redistributed (kg)"  value={community.foodRedistributedKg}  max={50000} color={Colors.accent} />
+            <ProgressBar label="Food redistributed (kg)"  value={community?.foodRedistributedKg ?? 0}  max={Math.max(community?.foodRedistributedKg ?? 1, 100)} color={Colors.accent} />
             <View style={{ height: Spacing.sm }} />
-            <ProgressBar label="CO₂ saved (kg)"           value={community.co2SavedKg}           max={100000} color={Colors.textSecondary} />
+            <ProgressBar label="CO₂ saved (kg)"           value={community?.co2SavedKg ?? 0}           max={Math.max(community?.co2SavedKg ?? 1, 100)} color={Colors.textSecondary} />
           </Card>
         </View>
 
